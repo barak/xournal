@@ -1,0 +1,16 @@
+Source: xournal
+Section: x11
+Priority: optional
+Maintainer: Mathieu Bouchard <mbouchar@bioinfo.ulaval.ca>
+Build-Depends: debhelper (>= 5), autoconf, automake, libgtk2.0-dev (>= 2.4), libgnomecanvas2-dev, libgnomeprint2.2-dev, libgnomeprintui2.2-dev
+Standards-Version: 3.7.2
+
+Package: xournal
+Architecture: any
+Depends: ${shlibs:Depends}, gs, xpdf-reader (>= 3.0)
+Description: GTK+ Application for note taking
+ Xournal is a GTK+ application for notetaking, sketching and
+ keeping a journal using a stylus. It can also be used to
+ add annotations to PDF files.
+ .
+  Homepage: http://xournal.sourceforge.net/
