@@ -1,3 +1,13 @@
+xournal (0.4.1-1) unstable; urgency=low
+
+  * New upstream release (Closes: #410909, #441222, #458684)
+  * Fix FTBFS if build twice in a row (Closes: #442773)
+  * Removed deprecated Encoding key from desktop files
+  * Added Wl,--as-needed as linking options to remove linking to unused
+    libraries
+
+ -- Mathieu Bouchard <mbouchar@bioinfo.ulaval.ca>  Sat, 15 Sep 2007 23:18:10 -0400
+
 xournal (0.3.3-1) unstable; urgency=low
 
   * New upstream release

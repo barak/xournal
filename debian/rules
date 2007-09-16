@@ -25,9 +25,7 @@ configure-stamp:
 
 	touch configure-stamp
 
-
 build: build-stamp
-
 build-stamp: configure-stamp 
 	dh_testdir
 
@@ -39,14 +37,16 @@ build-stamp: configure-stamp
 clean:
 	dh_testdir
 	dh_testroot
-	rm -f build-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
-	if test -d Makefile; then \
-		-$(MAKE) clean >& /dev/null; \
+	if test -f Makefile; then \
+		$(MAKE) distclean; \
 	else \
 		rm -f src/xournal; \
         fi
+
+	rm -f configure-stamp build-stamp
+	rm -f depcomp install-sh missing configure
 
 	dh_clean 
 
@@ -58,7 +58,7 @@ install: build
 
 	# Add here commands to install the package into debian/xournal.
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/xournal
-
+	$(MAKE) desktop-install DESTDIR=$(CURDIR)/debian/xournal
 
 # Build architecture-independent files here.
 binary-indep: build install
@@ -72,6 +72,7 @@ binary-arch: build install
 	dh_installdocs
 	dh_installman debian/xournal.1
 	dh_installmenu
+	dh_desktop
 	dh_link
 	dh_strip
 	dh_compress

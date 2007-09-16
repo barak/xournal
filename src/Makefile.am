@@ -18,4 +18,4 @@ xournal_SOURCES = \
 	xo-callbacks.c xo-callbacks.h 
 
 xournal_LDADD = @PACKAGE_LIBS@
-
+xournal_LDFLAGS = -Wl,--as-needed

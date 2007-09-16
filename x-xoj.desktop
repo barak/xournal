@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=MimeType
+MimeType=application/x-xoj
+Icon=xoj
+Patterns=*.xoj;*.XOJ;*.Xoj;
+
+Comment=Xournal note file
+Comment[fr]=Fichier Xournal
