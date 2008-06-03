@@ -1,3 +1,13 @@
+xournal (0.4.2.1-0.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+    + Uploaded directly to unstable, as the maintainer seems inactive
+      (no answer to bug reports, no answer to Philipp Kern's intent
+      to NMU in #478540).
+  * New upstream release (Closes: #478540).
+
+ -- Lucas Nussbaum <lucas@lucas-nussbaum.net>  Tue, 03 Jun 2008 11:19:48 +0200
+
 xournal (0.4.1-1) unstable; urgency=low
 
   * New upstream release (Closes: #410909, #441222, #458684)
