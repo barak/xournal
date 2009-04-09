@@ -19,4 +19,4 @@ xournal_SOURCES = \
 	xo-shapes.c xo-shapes.h
 
 xournal_LDADD = @PACKAGE_LIBS@
-xournal_LDFLAGS = -Wl,--as-needed
+

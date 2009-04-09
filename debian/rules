@@ -9,6 +9,8 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+include /usr/share/quilt/quilt.make
+
 CFLAGS = -Wall -g
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
@@ -18,9 +20,9 @@ else
 endif
 
 configure: configure-stamp
-configure-stamp:
+configure-stamp: $(QUILT_STAMPFN)
 	dh_testdir
-	# Add here commands to configure the package.
+	# Configure the package.
 	./autogen.sh --prefix=/usr
 
 	touch configure-stamp
@@ -29,22 +31,23 @@ build: build-stamp
 build-stamp: configure-stamp 
 	dh_testdir
 
-	# Add here commands to compile the package.
+	# Compile the package.
 	$(MAKE)
 
 	touch build-stamp
 
-clean:
+clean: unpatch
 	dh_testdir
 	dh_testroot
 
-	# Add here commands to clean up after the build process.
+	# Clean up after the build process.
 	if test -f Makefile; then \
 		$(MAKE) distclean; \
 	else \
 		rm -f src/xournal; \
         fi
 
+	rm -f aclocal.m4 config.h.in Makefile.in src/Makefile.in
 	rm -f configure-stamp build-stamp
 	rm -f depcomp install-sh missing configure
 
@@ -53,10 +56,10 @@ clean:
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k 
+	dh_prep
 	dh_installdirs
 
-	# Add here commands to install the package into debian/xournal.
+	# Install the package into debian/xournal.
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/xournal
 	$(MAKE) desktop-install DESTDIR=$(CURDIR)/debian/xournal
 

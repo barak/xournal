@@ -1,3 +1,21 @@
+xournal (0.4.2.1-1) unstable; urgency=low
+
+  * Changing Maintainer
+  * Changed dependency from gs to ghostscript-x.
+  * Converted to quilt for source modifications.
+  * Restored UTF support in desktop and mime files.
+  * Modify clean rule to delete leftover configuration files which 
+    were making the diff.gz file significantly larger.
+  * Added patch to src/xo-file.c which fixes the problem that PDF files 
+    cannot be opened for annotation with libgtk2.0-0 version 2.14.7 on 
+    i386 (Closes: #522541).
+  * Install debian/watch from Ubuntu package (Closes: #501323).
+  * Raised debhelper compatibility  level to 7.
+  * Upgraded Standards Version to 3.8.1 (no changes).
+  * Acknowledge NMU (Closes: #478540).
+
+ -- Carlo Segre <segre@debian.org>  Thu, 09 Apr 2009 00:16:08 -0500
+
 xournal (0.4.2.1-0.1) unstable; urgency=low
 
   * Non-maintainer upload.

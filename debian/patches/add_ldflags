@@ -1,0 +1,8 @@
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -19,4 +19,4 @@
+ 	xo-shapes.c xo-shapes.h
+ 
+ xournal_LDADD = @PACKAGE_LIBS@
+-
++xournal_LDFLAGS = -Wl,--as-needed
