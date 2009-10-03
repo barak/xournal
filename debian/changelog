@@ -1,3 +1,18 @@
+xournal (0.4.5-1) unstable; urgency=low
+
+  * New upstream release - fixes the following bugs:
+    - Change to gtk+ (>= 2.10) eliminating dependencies on libgnomeprint
+      and libgnomeprintui (Closes: #542571, #539128)
+    - Remove dependency on poppler-utils and replace with poppler-glib which
+      eliminates the problem with xpdf-utils and poppler-utils 
+      (Closes: #499037)
+    - New option available to autoload *.pdf.xoj files (Closes: #410911)
+  * Upgrade to Standards-Version 3.8.3 (no changes)
+  * Change to section "x11"
+  
+
+ -- Carlo Segre <segre@debian.org>  Sat, 03 Oct 2009 00:28:16 -0500
+
 xournal (0.4.2.1-1) unstable; urgency=low
 
   * Changing Maintainer

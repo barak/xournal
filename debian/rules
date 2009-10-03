@@ -75,7 +75,6 @@ binary-arch: build install
 	dh_installdocs
 	dh_installman debian/xournal.1
 	dh_installmenu
-	dh_desktop
 	dh_link
 	dh_strip
 	dh_compress
