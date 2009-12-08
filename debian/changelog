@@ -1,3 +1,10 @@
+xournal (0.4.5-2) unstable; urgency=low
+
+  * Patch from Gentoo and Ubuntu to xo-print.c (Closes: #552075)
+  * Move html-doc to /usr/share/doc/xournal (Closes: #560076)
+
+ -- Carlo Segre <segre@debian.org>  Tue, 08 Dec 2009 15:39:31 -0600
+
 xournal (0.4.5-1) unstable; urgency=low
 
   * New upstream release - fixes the following bugs:

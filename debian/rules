@@ -62,6 +62,8 @@ install: build
 	# Install the package into debian/xournal.
 	$(MAKE) install DESTDIR=$(CURDIR)/debian/xournal
 	$(MAKE) desktop-install DESTDIR=$(CURDIR)/debian/xournal
+	# Remove HTML manual from /usr/share/xournal/html-doc
+	rm -rf $(CURDIR)/debian/xournal/usr/share/xournal/html-doc
 
 # Build architecture-independent files here.
 binary-indep: build install
