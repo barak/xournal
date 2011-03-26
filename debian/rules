@@ -9,8 +9,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-include /usr/share/quilt/quilt.make
-
 CFLAGS = -Wall -g
 
 ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
@@ -20,7 +18,7 @@ else
 endif
 
 configure: configure-stamp
-configure-stamp: $(QUILT_STAMPFN)
+configure-stamp:
 	dh_testdir
 	# Configure the package.
 	./autogen.sh --prefix=/usr
@@ -36,7 +34,7 @@ build-stamp: configure-stamp
 
 	touch build-stamp
 
-clean: unpatch
+clean: 
 	dh_testdir
 	dh_testroot
 

@@ -1,3 +1,11 @@
+xournal (0.4.5-3) unstable; urgency=low
+
+  * Add -lz and -X11 to link flags (Closes: #617637, #556718)
+  * Add ${misc:Depends} to debian/control
+  * Upgrade to Standards-Version 3.9.1 (no changes)
+
+ -- Carlo Segre <segre@debian.org>  Sat, 26 Mar 2011 14:18:31 -0500
+
 xournal (0.4.5-2) unstable; urgency=low
 
   * Patch from Gentoo and Ubuntu to xo-print.c (Closes: #552075)
