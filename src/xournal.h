@@ -24,6 +24,14 @@
 #define MRU_SIZE 8 
 #define CONFIG_FILE "config"
 
+// version string for about box
+
+#ifdef WIN32
+#define VERSION_STRING VERSION "-win32"
+#else
+#define VERSION_STRING VERSION
+#endif
+
 // DATA STRUCTURES AND CONSTANTS
 
 #define PIXEL_MOTION_THRESHOLD 0.3
@@ -244,6 +252,7 @@ typedef struct UIData {
   gboolean pressure_sensitivity; // use pen pressure to control stroke width?
   double width_minimum_multiplier, width_maximum_multiplier; // calibration for pressure sensitivity
   gboolean is_corestroke; // this stroke is painted with core pointer
+  gboolean saved_is_corestroke;
   GdkDevice *stroke_device; // who's painting this stroke
   int screen_width, screen_height; // initial screen size, for XInput events
   double hand_refpt[2];
@@ -282,9 +291,11 @@ typedef struct UIData {
   gboolean shorten_menus; // shorten menus ?
   gchar *shorten_menu_items; // which items to hide
   gboolean is_sel_cursor; // displaying a selection-related cursor
+  gint pre_fullscreen_width, pre_fullscreen_height; // for win32 fullscreen
 #if GTK_CHECK_VERSION(2,10,0)
   GtkPrintSettings *print_settings;
 #endif
+  gboolean poppler_force_cairo; // force poppler to use cairo
 } UIData;
 
 #define BRUSH_LINKED 0

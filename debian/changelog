@@ -1,3 +1,11 @@
+xournal (0.4.6~pre20110721-1) unstable; urgency=low
+
+  * Pull from upstream CVS
+  * Upgrade to Standards-Version 3.9.2 (no changes)
+  * Add build-arch and build-indep targets to debian/rules
+
+ -- Carlo Segre <segre@debian.org>  Sat, 24 Sep 2011 15:19:58 -0500
+
 xournal (0.4.5-3) unstable; urgency=low
 
   * Add -lz and -X11 to link flags (Closes: #617637, #556718)

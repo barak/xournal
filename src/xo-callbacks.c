@@ -221,7 +221,7 @@ on_fileSaveAs_activate                 (GtkMenuItem     *menuitem,
   }
   else {
     curtime = time(NULL);
-    strftime(stime, 30, "%F-Note-%H-%M.xoj", localtime(&curtime));
+    strftime(stime, 30, "%Y-%m-%d-Note-%H-%M.xoj", localtime(&curtime));
     if (ui.default_path!=NULL)
       gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER (dialog), ui.default_path);
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER (dialog), stime);
@@ -374,7 +374,7 @@ on_filePrintPDF_activate               (GtkMenuItem     *menuitem,
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER (dialog), g_basename(in_fn));
   } else {
     curtime = time(NULL);
-    strftime(stime, 30, "%F-Note-%H-%M.pdf", localtime(&curtime));
+    strftime(stime, 30, "%Y-%m-%d-Note-%H-%M.pdf", localtime(&curtime));
     if (ui.default_path!=NULL)
       gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER (dialog), ui.default_path);
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER (dialog), stime);
@@ -2258,7 +2258,7 @@ on_helpAbout_activate                  (GtkMenuItem     *menuitem,
   aboutDialog = create_aboutDialog ();
   labelTitle = GTK_LABEL(g_object_get_data(G_OBJECT(aboutDialog), "labelTitle"));
   gtk_label_set_markup(labelTitle, 
-    "<span size=\"xx-large\" weight=\"bold\">Xournal " VERSION "</span>");
+    "<span size=\"xx-large\" weight=\"bold\">Xournal " VERSION_STRING "</span>");
   gtk_dialog_run (GTK_DIALOG(aboutDialog));
   gtk_widget_destroy(aboutDialog);
 }
@@ -2370,6 +2370,8 @@ on_canvas_button_press_event           (GtkWidget       *widget,
   }
   if ((event->state & (GDK_CONTROL_MASK|GDK_MOD1_MASK)) != 0) return FALSE;
     // no control-clicking or alt-clicking
+  if (!is_core) gdk_device_get_state(event->device, event->window, event->axes, NULL);
+    // synaptics touchpads send bogus axis values with ButtonDown
   if (!is_core)
     fix_xinput_coords((GdkEvent *)event);
 
@@ -2443,6 +2445,9 @@ on_canvas_button_press_event           (GtkWidget       *widget,
   
   ui.which_mouse_button = event->button;
   switch_mapping(mapping);
+#ifdef WIN32
+  update_cursor();
+#endif
 
   // in text tool, clicking in a text area edits it
   if (ui.toolno[mapping] == TOOL_TEXT) {
@@ -2553,10 +2558,15 @@ on_canvas_enter_notify_event           (GtkWidget       *widget,
     /* re-enable input devices after they've been emergency-disabled
        by leave_notify */
   if (!gtk_check_version(2, 17, 0)) {
+    gdk_flush();
+    gdk_error_trap_push();
     for (dev_list = gdk_devices_list(); dev_list != NULL; dev_list = dev_list->next) {
       dev = GDK_DEVICE(dev_list->data);
       gdk_device_set_mode(dev, GDK_MODE_SCREEN);
     }
+    ui.is_corestroke = ui.saved_is_corestroke;
+    gdk_flush();
+    gdk_error_trap_pop();
   }
   return FALSE;
 }
@@ -2574,11 +2584,17 @@ on_canvas_leave_notify_event           (GtkWidget       *widget,
 #endif
     /* emergency disable XInput to avoid segfaults (GTK+ 2.17) or 
        interface non-responsiveness (GTK+ 2.18) */
-  if (!gtk_check_version(2, 17, 0)) { 
+  if (!gtk_check_version(2, 17, 0)) {
+    gdk_flush();
+    gdk_error_trap_push();
     for (dev_list = gdk_devices_list(); dev_list != NULL; dev_list = dev_list->next) {
       dev = GDK_DEVICE(dev_list->data);
       gdk_device_set_mode(dev, GDK_MODE_DISABLED);
     }
+    ui.saved_is_corestroke = ui.is_corestroke;
+    ui.is_corestroke = TRUE;
+    gdk_flush();
+    gdk_error_trap_pop();
   }
   return FALSE;
 }
@@ -2709,6 +2725,9 @@ on_canvas_motion_notify_event          (GtkWidget       *widget,
     else if (ui.cur_item_type == ITEM_RESIZESEL) {
       finalize_resizesel();
     }
+    else if (ui.cur_item_type == ITEM_HAND) {
+      ui.cur_item_type = ITEM_NONE;
+    }
     switch_mapping(0);
     return FALSE;
   }
@@ -2811,7 +2830,9 @@ on_optionsUseXInput_activate           (GtkMenuItem     *menuitem,
    non-responsive). 
 */
 
+#ifndef WIN32
   if (!gtk_check_version(2, 17, 0)) {
+#endif
     /* GTK+ 2.17 and later: everybody shares a single native window,
        so we'll never get any core events, and we might as well set 
        extension events the way we're supposed to. Doing so helps solve 
@@ -2819,14 +2840,18 @@ on_optionsUseXInput_activate           (GtkMenuItem     *menuitem,
        events in 2.18 */
     gtk_widget_set_extension_events(GTK_WIDGET (canvas), 
        ui.use_xinput?GDK_EXTENSION_EVENTS_ALL:GDK_EXTENSION_EVENTS_NONE);
+#ifndef WIN32
   } else {
+#endif
     /* GTK+ 2.16 and earlier: we only activate extension events on the
        canvas's parent GdkWindow. This allows us to keep receiving core
        events. */
     gdk_input_set_extension_events(GTK_WIDGET(canvas)->window, 
       GDK_POINTER_MOTION_MASK | GDK_BUTTON_MOTION_MASK | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK,
       ui.use_xinput?GDK_EXTENSION_EVENTS_ALL:GDK_EXTENSION_EVENTS_NONE);
+#ifndef WIN32
   }
+#endif
   
   update_mappings_menu();
 }

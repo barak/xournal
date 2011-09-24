@@ -11,12 +11,15 @@
 #include <libgnomecanvas/libgnomecanvas.h>
 #include <zlib.h>
 #include <math.h>
-#include <gdk/gdkx.h>
-#include <X11/Xlib.h>
 #include <locale.h>
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <poppler/glib/poppler.h>
+
+#ifndef WIN32
+ #include <gdk/gdkx.h>
+ #include <X11/Xlib.h>
+#endif
 
 #include "xournal.h"
 #include "xo-interface.h"
@@ -83,7 +86,7 @@ gboolean save_journal(const char *filename)
   GList *pagelist, *layerlist, *itemlist, *list;
   GtkWidget *dialog;
   
-  f = gzopen(filename, "w");
+  f = gzopen(filename, "wb");
   if (f==NULL) return FALSE;
   chk_attach_names();
 
@@ -143,7 +146,7 @@ gboolean save_journal(const char *filename)
           success = FALSE;
           if (bgpdf.status != STATUS_NOT_INIT && bgpdf.file_contents != NULL)
           {
-            tmpf = fopen(tmpfn, "w");
+            tmpf = fopen(tmpfn, "wb");
             if (tmpf != NULL && fwrite(bgpdf.file_contents, 1, bgpdf.file_length, tmpf) == bgpdf.file_length)
               success = TRUE;
             fclose(tmpf);
@@ -196,7 +199,9 @@ gboolean save_journal(const char *filename)
           else
             gzprintf(f, "#%08x", item->brush.color_rgba);
           tmpstr = g_markup_escape_text(item->text, -1);
-          gzprintf(f, "\">%s</text>\n", tmpstr);
+          gzputs(f, "\">");
+          gzputs(f, tmpstr); // gzprintf() can't handle > 4095 bytes
+          gzputs(f, "</text>\n");
           g_free(tmpstr);
         }
       }
@@ -715,7 +720,7 @@ gboolean open_journal(char *filename)
   }
   g_free(tmpfn);
 
-  f = gzopen(filename, "r");
+  f = gzopen(filename, "rb");
   if (f==NULL) return FALSE;
   if (filename[0]=='/') {
     if (ui.default_path != NULL) g_free(ui.default_path);
@@ -864,7 +869,7 @@ GList *attempt_load_gv_bg(char *filename)
   char *pipename;
   int buflen, remnlen, file_pageno;
   
-  f = fopen(filename, "r");
+  f = fopen(filename, "rb");
   if (f == NULL) return NULL;
   buf = g_malloc(BUFSIZE); // a reasonable buffer size
   if (fread(buf, 1, 4, f) !=4 ||
@@ -876,7 +881,7 @@ GList *attempt_load_gv_bg(char *filename)
   
   fclose(f);
   pipename = g_strdup_printf(GS_CMDLINE, (double)GS_BITMAP_DPI, filename);
-  gs_pipe = popen(pipename, "r");
+  gs_pipe = popen(pipename, "rb");
   g_free(pipename);
   
   bg_list = NULL;
@@ -922,6 +927,7 @@ GList *attempt_load_gv_bg(char *filename)
 
 struct Background *attempt_screenshot_bg(void)
 {
+#ifndef WIN32
   struct Background *bg;
   GdkPixbuf *pix;
   XEvent x_event;
@@ -958,6 +964,10 @@ struct Background *attempt_screenshot_bg(void)
   bg->filename = new_refstring(NULL);
   bg->file_domain = DOMAIN_ATTACH;
   return bg;
+#else
+  // not implemented under WIN32
+  return FALSE;
+#endif
 }
 
 /************** pdf annotation ***************/
@@ -986,6 +996,8 @@ gboolean bgpdf_scheduler_callback(gpointer data)
   PopplerPage *pdfpage;
   gdouble height, width;
   int scaled_height, scaled_width;
+  GdkPixmap *pixmap;
+  cairo_t *cr;
 
   // if all requests have been cancelled, remove ourselves from main loop
   if (bgpdf.requests == NULL) { bgpdf.pid = 0; return FALSE; }
@@ -1003,11 +1015,26 @@ gboolean bgpdf_scheduler_callback(gpointer data)
     poppler_page_get_size(pdfpage, &width, &height);
     scaled_width = (int) (req->dpi * width/72);
     scaled_height = (int) (req->dpi * height/72);
-    pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
-                FALSE, 8, scaled_width, scaled_height);
-    poppler_page_render_to_pixbuf(
+
+    if (ui.poppler_force_cairo) { // poppler -> cairo -> pixmap -> pixbuf
+      pixmap = gdk_pixmap_new(GTK_WIDGET(canvas)->window, scaled_width, scaled_height, -1);
+      cr = gdk_cairo_create(pixmap);
+      cairo_set_source_rgb(cr, 1., 1., 1.);
+      cairo_paint(cr);
+      cairo_scale(cr, scaled_width/width, scaled_height/height);
+      poppler_page_render(pdfpage, cr);
+      cairo_destroy(cr);
+      pixbuf = gdk_pixbuf_get_from_drawable(NULL, GDK_DRAWABLE(pixmap),
+        NULL, 0, 0, 0, 0, scaled_width, scaled_height);
+      g_object_unref(pixmap);
+    }
+    else { // directly poppler -> pixbuf: faster, but bitmap font bug
+      pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
+                 FALSE, 8, scaled_width, scaled_height);
+      wrapper_poppler_page_render_to_pixbuf(
                 pdfpage, 0, 0, scaled_width, scaled_height,
                 req->dpi/72, 0, pixbuf);
+    }
     g_object_unref(pdfpage);
     set_cursor_busy(FALSE);
   }
@@ -1345,6 +1372,7 @@ void init_config_default(void)
   ui.width_maximum_multiplier = 1.25;
   ui.button_switch_mapping = FALSE;
   ui.autoload_pdf_xoj = FALSE;
+  ui.poppler_force_cairo = FALSE;
   
   // the default UI vertical order
   ui.vertical_order[0][0] = 1; 
@@ -1513,6 +1541,9 @@ void save_config_to_file(void)
   update_keyval("general", "autosave_prefs",
     _(" auto-save preferences on exit (true/false)"),
     g_strdup(ui.auto_save_prefs?"true":"false"));
+  update_keyval("general", "poppler_force_cairo",
+    _(" force PDF rendering through cairo (slower but nicer) (true/false)"),
+    g_strdup(ui.poppler_force_cairo?"true":"false"));
 
   update_keyval("paper", "width",
     _(" the default page width, in points (1/72 in)"),
@@ -1877,6 +1908,7 @@ void load_config_from_file(void)
     if (str!=NULL) { g_free(ui.shorten_menu_items); ui.shorten_menu_items = str; }
   parse_keyval_float("general", "highlighter_opacity", &ui.hiliter_opacity, 0., 1.);
   parse_keyval_boolean("general", "autosave_prefs", &ui.auto_save_prefs);
+  parse_keyval_boolean("general", "poppler_force_cairo", &ui.poppler_force_cairo);
   
   parse_keyval_float("paper", "width", &ui.default_page.width, 1., 5000.);
   parse_keyval_float("paper", "height", &ui.default_page.height, 1., 5000.);
