@@ -1,3 +1,10 @@
+xournal (4.7-1) unstable; urgency=low
+
+  * New upstream release (Closes: #690439)
+  * Upgrade to Standards-Version 3.9.3 (no changes)
+
+ -- Carlo Segre <segre@debian.org>  Sun, 14 Oct 2012 11:29:46 -0500
+
 xournal (0.4.6~pre20110721-1) unstable; urgency=low
 
   * Pull from upstream CVS
