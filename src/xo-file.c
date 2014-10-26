@@ -54,7 +54,22 @@ const char *bgcolor_names[COLOR_MAX] = {"", "blue", "pink", "green",
 const char *bgstyle_names[4] = {"plain", "lined", "ruled", "graph"};
 const char *file_domain_names[3] = {"absolute", "attach", "clone"};
 const char *unit_names[4] = {"cm", "in", "px", "pt"};
+const char *view_mode_names[3] = {"false", "true", "horiz"}; // need 'false' & 'true' for backward compatibility
 int PDFTOPPM_PRINTING_DPI, GS_BITMAP_DPI;
+
+// gzopen() wrapper to handle non-ASCII filenames in Windows
+
+gzFile gzopen_wrapper(const char *path, const char *mode)
+{
+#ifdef WIN32
+   gunichar2 *utf16_path = g_utf8_to_utf16(path, -1, NULL, NULL, NULL);
+   gzFile f = gzopen_w(utf16_path, mode);
+   g_free(utf16_path);
+   return f;
+#else
+   return gzopen(path, mode);
+#endif
+}
 
 // creates a new empty journal
 
@@ -130,7 +145,7 @@ GdkPixbuf *read_pixbuf(const gchar *base64_str, gsize base64_strlen)
 
 // saves the journal to a file: returns true on success, false on error
 
-gboolean save_journal(const char *filename)
+gboolean save_journal(const char *filename, gboolean is_auto)
 {
   gzFile f;
   struct Page *pg, *tmppg;
@@ -143,9 +158,11 @@ gboolean save_journal(const char *filename)
   GList *pagelist, *layerlist, *itemlist, *list;
   GtkWidget *dialog;
   
-  f = gzopen(filename, "wb");
+  f = gzopen_wrapper(filename, "wb");
   if (f==NULL) return FALSE;
   chk_attach_names();
+  if (is_auto)
+    ui.autosave_filename_list = g_list_append(ui.autosave_filename_list, g_strdup(filename));
 
   setlocale(LC_NUMERIC, "C");
   
@@ -176,7 +193,9 @@ gboolean save_journal(const char *filename)
       else {
         if (pg->bg->file_domain == DOMAIN_ATTACH) {
           tmpfn = g_strdup_printf("%s.%s", filename, pg->bg->filename->s);
-          if (!gdk_pixbuf_save(pg->bg->pixbuf, tmpfn, "png", NULL, NULL)) {
+          if (is_auto)
+            ui.autosave_filename_list = g_list_append(ui.autosave_filename_list, g_strdup(tmpfn));
+          if (!gdk_pixbuf_save(pg->bg->pixbuf, tmpfn, "png", NULL, NULL) && !is_auto) {
             dialog = gtk_message_dialog_new(GTK_WINDOW(winMain), GTK_DIALOG_MODAL,
               GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, 
               _("Could not write background '%s'. Continuing anyway."), tmpfn);
@@ -203,12 +222,14 @@ gboolean save_journal(const char *filename)
           success = FALSE;
           if (bgpdf.status != STATUS_NOT_INIT && bgpdf.file_contents != NULL)
           {
-            tmpf = fopen(tmpfn, "wb");
+            tmpf = g_fopen(tmpfn, "wb");
+            if (is_auto)
+              ui.autosave_filename_list = g_list_append(ui.autosave_filename_list, g_strdup(tmpfn));
             if (tmpf != NULL && fwrite(bgpdf.file_contents, 1, bgpdf.file_length, tmpf) == bgpdf.file_length)
               success = TRUE;
             fclose(tmpf);
           }
-          if (!success) {
+          if (!success && !is_auto) {
             dialog = gtk_message_dialog_new(GTK_WINDOW(winMain), GTK_DIALOG_MODAL,
               GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, 
               _("Could not write background '%s'. Continuing anyway."), tmpfn);
@@ -279,6 +300,178 @@ gboolean save_journal(const char *filename)
   return TRUE;
 }
 
+// autosave stuff
+
+void autosave_cleanup(GList **list)
+{
+  char *filename;
+  GList *l;
+  for (l = *list; l!=NULL; l = l->next) {
+    filename = (char*)l->data;
+    g_unlink(filename);
+    g_free(filename);
+  }
+  if (*list!=NULL) g_list_free(*list);
+  *list = NULL;
+}
+
+#if !GLIB_CHECK_VERSION(2,14,0)
+#define g_timeout_add_seconds(interval, function, data) g_timeout_add(1000*interval, function, data)
+#endif
+
+gboolean autosave_cb(gpointer is_catchup)
+{
+  GList *old_filenames;
+  gchar *base_filename, *test_filename;
+  int num;
+
+  // figure out whether we actually need to auto-save, and can do so.
+  if (!ui.autosave_enabled) {
+    ui.autosave_need_catchup = FALSE;
+    if (!is_catchup) ui.autosave_loop_running = FALSE;
+    return FALSE; // kill the timeout loop, if we're in it
+  }
+  if (ui.saved || !ui.need_autosave) { // nothing to do
+    ui.autosave_need_catchup = FALSE;
+    return TRUE; // come back later, if we're in the timeout loop
+  }
+  if (ui.cur_item_type != ITEM_NONE) { // can't do things now, request catchup
+    ui.autosave_need_catchup = TRUE;
+    return TRUE; // can't do it right now, come back later
+  }
+  
+  // generate an autosave filename
+  base_filename = candidate_save_filename();
+  for (num=0; num<=AUTOSAVE_MAX; num++) {
+    test_filename = g_strdup_printf(AUTOSAVE_FILENAME_TEMPLATE, base_filename, num);
+    if (!g_file_test(test_filename, G_FILE_TEST_EXISTS)) break;
+    g_free(test_filename);
+  }
+  g_free(base_filename);
+  if (num > AUTOSAVE_MAX) // we ran out of autosave file names... try at the next loop iteration
+    return TRUE;
+  // keep track of old save filenames
+  old_filenames = ui.autosave_filename_list;
+  ui.autosave_filename_list = NULL;
+  if (save_journal(test_filename, TRUE)) { // non-interactive save -> success
+    ui.need_autosave = FALSE; // no longer need an auto-save
+    autosave_cleanup(&old_filenames);
+  } else { // aborted
+    autosave_cleanup(&ui.autosave_filename_list); 
+    ui.autosave_filename_list = old_filenames;
+  }
+  g_free(test_filename);
+  
+  return TRUE; // continue with the timed loop, if we're in it
+}
+
+void init_autosave(void)
+{
+  if (!ui.autosave_enabled) return;
+  if (ui.autosave_loop_running) return; // already running
+  g_timeout_add_seconds(ui.autosave_delay, autosave_cb, NULL);
+  ui.autosave_loop_running = TRUE;
+  ui.autosave_need_catchup = FALSE;
+  ui.need_autosave = !ui.saved;
+}
+
+void delete_autosave(char *filename)
+{
+  char *attach_filename;
+  int k;
+
+  g_unlink(filename);
+  attach_filename = g_strdup_printf("%s.bg.pdf", filename);
+  g_unlink(attach_filename);
+  k = 1;
+  do {
+    g_free(attach_filename);
+    attach_filename = g_strdup_printf("%s.bg_%d.png", filename, k++);
+  } 
+  while (!g_unlink(attach_filename));
+  g_free(attach_filename);
+}
+
+char *check_for_autosave(char *filename)
+{
+  int num, count;
+  char *test_filename, *filter_str, *cand_filename;
+  GtkWidget *dialog;
+  GtkResponseType response;
+  GtkFileFilter *filt_all, *filt_autosave;
+
+  count = 0;
+  for (num=0; num<=AUTOSAVE_MAX; num++) {
+    test_filename = g_strdup_printf(AUTOSAVE_FILENAME_TEMPLATE, filename, num);
+    if (g_file_test(test_filename, G_FILE_TEST_EXISTS)) {
+      if (!count) cand_filename = g_strdup(test_filename);
+      count++;
+    }
+    g_free(test_filename);
+  }
+  if (count == 0) return g_strdup(filename); // no auto-saves
+
+  // auto-save file found, ask user what to do about it.
+  dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_MODAL,
+     GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE, 
+     _("%d auto-save files were found, including '%s'"), count, xo_basename(cand_filename, TRUE));
+  gtk_dialog_add_button(GTK_DIALOG(dialog), _("Ignore"), GTK_RESPONSE_NO);
+  gtk_dialog_add_button(GTK_DIALOG(dialog), _("Restore auto-save"), GTK_RESPONSE_YES);
+  gtk_dialog_add_button(GTK_DIALOG(dialog), _("Delete auto-saves"), GTK_RESPONSE_REJECT);
+  gtk_dialog_set_default_response(GTK_DIALOG (dialog), GTK_RESPONSE_NO);
+  response = gtk_dialog_run(GTK_DIALOG(dialog));
+  gtk_widget_destroy(dialog);
+  
+  if (response == GTK_RESPONSE_REJECT) {  // delete all auto-saves + attachments
+    set_cursor_busy(TRUE);
+    for (num=0; num<=AUTOSAVE_MAX; num++) {
+      test_filename = g_strdup_printf(AUTOSAVE_FILENAME_TEMPLATE, filename, num);
+      if (g_file_test(test_filename, G_FILE_TEST_EXISTS))
+        delete_autosave(test_filename);
+      g_free(test_filename);
+    }
+    set_cursor_busy(FALSE);
+  }
+  
+  if (response != GTK_RESPONSE_YES) {
+    g_free(cand_filename);
+    return g_strdup(filename); // ignore/delete
+  }
+  
+  // restore: ask user to pick one, if there's more than one
+  if (count > 1) {
+    dialog = gtk_file_chooser_dialog_new(_("Multiple auto-saves found"), GTK_WINDOW (winMain),
+         GTK_FILE_CHOOSER_ACTION_OPEN, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+         GTK_STOCK_OPEN, GTK_RESPONSE_OK, NULL);
+#ifdef FILE_DIALOG_SIZE_BUGFIX
+    gtk_window_set_default_size(GTK_WINDOW(dialog), 500, 400);
+#endif
+    gtk_file_chooser_set_filename(GTK_FILE_CHOOSER (dialog), cand_filename);
+//  gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER (dialog), xo_basename(cand_filename, FALSE));
+    g_free(cand_filename);
+    filt_all = gtk_file_filter_new();
+    gtk_file_filter_set_name(filt_all, _("All files"));
+    gtk_file_filter_add_pattern(filt_all, "*");
+    filt_autosave = gtk_file_filter_new();
+    filter_str = g_strdup_printf(AUTOSAVE_FILENAME_FILTER, xo_basename(filename, TRUE));
+    gtk_file_filter_set_name(filt_autosave, _("Auto-save files"));
+    gtk_file_filter_add_pattern(filt_autosave, filter_str);
+    g_free(filter_str);
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER (dialog), filt_autosave);
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER (dialog), filt_all);
+    gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
+      gtk_widget_destroy(dialog);
+      return g_strdup(filename);
+    }
+    cand_filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+    gtk_widget_destroy(dialog);
+  }
+  // cand_filename is the autosave we want to open
+  return cand_filename;
+}
+
+
 // closes a journal: returns true on success, false on abort
 
 gboolean close_journal(void)
@@ -293,6 +486,7 @@ gboolean close_journal(void)
 
   shutdown_bgpdf();
   delete_journal(&journal);
+  autosave_cleanup(&ui.autosave_filename_list);
   
   return TRUE;
   /* note: various members of ui and journal are now in invalid states,
@@ -456,7 +650,7 @@ void xoj_parser_start_element(GMarkupParseContext *context,
             { *error = xoj_invalid(); return; }
           tmpPage->bg->filename = refstring_ref(tmpbg->filename);
           tmpPage->bg->pixbuf = tmpbg->pixbuf;
-          if (tmpbg->pixbuf!=NULL) gdk_pixbuf_ref(tmpbg->pixbuf);
+          if (tmpbg->pixbuf!=NULL) g_object_ref(tmpbg->pixbuf);
           tmpPage->bg->file_domain = tmpbg->file_domain;
         }
         else {
@@ -836,7 +1030,7 @@ gboolean open_journal(char *filename)
   gzFile f;
   char buffer[1000];
   int len;
-  gchar *tmpfn, *tmpfn2, *p, *q;
+  gchar *tmpfn, *tmpfn2, *p, *q, *filename_actual;
   gboolean maybe_pdf;
   
   tmpfn = g_strdup_printf("%s.xoj", filename);
@@ -849,8 +1043,10 @@ gboolean open_journal(char *filename)
   }
   g_free(tmpfn);
 
-  f = gzopen(filename, "rb");
-  if (f==NULL) return FALSE;
+  filename_actual = check_for_autosave(filename);
+
+  f = gzopen_wrapper(filename_actual, "rb");
+  if (f==NULL) { g_free(filename_actual); return FALSE; }
   if (filename[0]=='/') {
     if (ui.default_path != NULL) g_free(ui.default_path);
     ui.default_path = g_path_get_dirname(filename);
@@ -864,7 +1060,7 @@ gboolean open_journal(char *filename)
   tmpPage = NULL;
   tmpLayer = NULL;
   tmpItem = NULL;
-  tmpFilename = filename;
+  tmpFilename = filename_actual;
   error = NULL;
   tmpBg_pdf = NULL;
   maybe_pdf = TRUE;
@@ -884,6 +1080,7 @@ gboolean open_journal(char *filename)
   g_markup_parse_context_free(context);
   
   if (!valid) {
+    g_free(filename_actual);
     delete_journal(&tmpJournal);
     if (!maybe_pdf) return FALSE;
     // essentially same as on_fileNewBackground from here on
@@ -905,19 +1102,19 @@ gboolean open_journal(char *filename)
   if (tmpBg_pdf!=NULL) { 
     while (bgpdf.status != STATUS_NOT_INIT) gtk_main_iteration();
     if (tmpBg_pdf->file_domain == DOMAIN_ATTACH)
-      tmpfn = g_strdup_printf("%s.%s", filename, tmpBg_pdf->filename->s);
+      tmpfn = g_strdup_printf("%s.%s", filename_actual, tmpBg_pdf->filename->s);
     else
       tmpfn = g_strdup(tmpBg_pdf->filename->s);
     valid = init_bgpdf(tmpfn, FALSE, tmpBg_pdf->file_domain);
     // if file name is invalid: first try in xoj file's directory
     if (!valid && tmpBg_pdf->file_domain != DOMAIN_ATTACH) {
       p = g_path_get_dirname(filename);
-      q = g_path_get_basename(tmpfn);
+      q = xo_basename(tmpfn, TRUE); // xoj may specify a cross-platform file path
       tmpfn2 = g_strdup_printf("%s/%s", p, q);
-      g_free(p); g_free(q);
+      g_free(p);
       valid = init_bgpdf(tmpfn2, FALSE, tmpBg_pdf->file_domain);
       if (valid) {  // change the file name...
-        printf("substituting %s -> %s\n", tmpfn, tmpfn2);
+//      printf("substituting %s -> %s\n", tmpfn, tmpfn2);
         g_free(tmpBg_pdf->filename->s);
         tmpBg_pdf->filename->s = tmpfn2;
       }
@@ -949,7 +1146,6 @@ gboolean open_journal(char *filename)
   ui.cur_page = (struct Page *)journal.pages->data;
   ui.layerno = ui.cur_page->nlayers-1;
   ui.cur_layer = (struct Layer *)(g_list_last(ui.cur_page->layers)->data);
-  ui.saved = TRUE;
   ui.zoom = ui.startup_zoom;
   update_file_name(g_strdup(filename));
   gnome_canvas_set_pixels_per_unit(canvas, ui.zoom);
@@ -957,6 +1153,29 @@ gboolean open_journal(char *filename)
   update_page_stuff();
   rescale_bg_pixmaps(); // this requests the PDF pages if need be
   gtk_adjustment_set_value(gtk_layout_get_vadjustment(GTK_LAYOUT(canvas)), 0);
+  
+  if (strcmp(filename, filename_actual)) { // we just restored an autosave
+    ui.saved = FALSE;
+    dialog = gtk_message_dialog_new(GTK_WINDOW(winMain), GTK_DIALOG_MODAL,
+        GTK_MESSAGE_OTHER, GTK_BUTTONS_YES_NO, 
+        _("Save this version and delete auto-save?"));
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_YES) {
+      if (save_journal(filename, FALSE)) { // success: delete autosave
+        delete_autosave(filename_actual);
+        ui.saved = TRUE;
+      } else { // failed to save; keep 
+        gtk_widget_destroy(dialog);
+        dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
+           GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, _("Error saving file '%s'"), filename);
+        gtk_dialog_run(GTK_DIALOG(dialog));
+      }
+    }
+    gtk_widget_destroy(dialog);
+  }
+  else ui.saved = TRUE;
+
+  g_free(filename_actual);
+  ui.need_autosave = !ui.saved;
   return TRUE;
 }
 
@@ -998,7 +1217,7 @@ GList *attempt_load_gv_bg(char *filename)
   char *pipename;
   int buflen, remnlen, file_pageno;
   
-  f = fopen(filename, "rb");
+  f = g_fopen(filename, "rb");
   if (f == NULL) return NULL;
   buf = g_malloc(BUFSIZE); // a reasonable buffer size
   if (fread(buf, 1, 4, f) !=4 ||
@@ -1033,7 +1252,7 @@ GList *attempt_load_gv_bg(char *filename)
     if (remnlen == 0) { // make a new bg
       pix = gdk_pixbuf_loader_get_pixbuf(loader);
       if (pix == NULL) break;
-      gdk_pixbuf_ref(pix);
+      g_object_ref(pix);
       gdk_pixbuf_loader_close(loader, NULL);
       g_object_unref(loader);
       loader = NULL;
@@ -1061,6 +1280,7 @@ struct Background *attempt_screenshot_bg(void)
   GdkPixbuf *pix;
   XEvent x_event;
   GdkWindow *window;
+  GdkColormap *cmap;
   int x,y,w,h;
   Window x_root, x_win;
 
@@ -1079,9 +1299,11 @@ struct Background *attempt_screenshot_bg(void)
   window = gdk_window_foreign_new_for_display(gdk_display_get_default(), x_win);
     
   gdk_window_get_geometry(window, &x, &y, &w, &h, NULL);
+  cmap = gdk_drawable_get_colormap(window);
+  if (cmap == NULL) cmap = gdk_colormap_get_system();
   
   pix = gdk_pixbuf_get_from_drawable(NULL, window,
-    gdk_colormap_get_system(), 0, 0, 0, 0, w, h);
+     cmap, 0, 0, 0, 0, w, h);
     
   if (pix == NULL) return NULL;
   
@@ -1177,7 +1399,7 @@ gboolean bgpdf_scheduler_callback(gpointer data)
       bgpdf.npages++;
     }
     bgpg = g_list_nth_data(bgpdf.pages, req->pageno-1);
-    if (bgpg->pixbuf!=NULL) gdk_pixbuf_unref(bgpg->pixbuf);
+    if (bgpg->pixbuf!=NULL) g_object_unref(bgpg->pixbuf);
     bgpg->pixbuf = pixbuf;
     bgpg->dpi = req->dpi;
     bgpg->pixel_height = scaled_height;
@@ -1240,7 +1462,7 @@ void shutdown_bgpdf(void)
   refstring_unref(bgpdf.filename);
   for (list = bgpdf.pages; list != NULL; list = list->next) {
     pdfpg = (struct BgPdfPage *)list->data;
-    if (pdfpg->pixbuf!=NULL) gdk_pixbuf_unref(pdfpg->pixbuf);
+    if (pdfpg->pixbuf!=NULL) g_object_unref(pdfpg->pixbuf);
     g_free(pdfpg);
   }
   g_list_free(bgpdf.pages);
@@ -1358,8 +1580,8 @@ void bgpdf_update_bg(int pageno, struct BgPdfPage *bgpg)
   for (list = journal.pages; list!= NULL; list = list->next) {
     pg = (struct Page *)list->data;
     if (pg->bg->type == BG_PDF && pg->bg->file_page_seq == pageno) {
-      if (pg->bg->pixbuf!=NULL) gdk_pixbuf_unref(pg->bg->pixbuf);
-      pg->bg->pixbuf = gdk_pixbuf_ref(bgpg->pixbuf);
+      if (pg->bg->pixbuf!=NULL) g_object_unref(pg->bg->pixbuf);
+      pg->bg->pixbuf = g_object_ref(bgpg->pixbuf);
       pg->bg->pixel_width = bgpg->pixel_width;
       pg->bg->pixel_height = bgpg->pixel_height;
       update_canvas_bg(pg);
@@ -1411,7 +1633,7 @@ void update_mru_menu(void)
   for (i=0; i<MRU_SIZE; i++) {
     if (ui.mru[i]!=NULL) {
       tmp = g_strdup_printf("_%d %s", i+1,
-               g_strjoinv("__", g_strsplit_set(g_basename(ui.mru[i]),"_",-1)));
+               g_strjoinv("__", g_strsplit_set(xo_basename(ui.mru[i], FALSE),"_",-1)));
       gtk_label_set_text_with_mnemonic(GTK_LABEL(gtk_bin_get_child(GTK_BIN(ui.mrumenu[i]))),
           tmp);
       g_free(tmp);
@@ -1455,7 +1677,7 @@ void save_mru_list(void)
   FILE *f;
   int i;
   
-  f = fopen(ui.mrufile, "w");
+  f = g_fopen(ui.mrufile, "w");
   if (f==NULL) return;
   for (i=0; i<MRU_SIZE; i++)
     if (ui.mru[i]!=NULL) fprintf(f, "%s\n", ui.mru[i]);
@@ -1474,17 +1696,20 @@ void init_config_default(void)
   ui.default_page.bg->color_no = COLOR_WHITE;
   ui.default_page.bg->color_rgba = predef_bgcolors_rgba[COLOR_WHITE];
   ui.default_page.bg->ruling = RULING_LINED;
-  ui.view_continuous = TRUE;
+  ui.view_continuous = VIEW_MODE_CONTINUOUS;
   ui.allow_xinput = TRUE;
   ui.discard_corepointer = FALSE;
+  ui.ignore_other_devices = TRUE;
+  ui.ignore_btn_reported_up = TRUE;
   ui.left_handed = FALSE;
   ui.shorten_menus = FALSE;
   ui.shorten_menu_items = g_strdup(DEFAULT_SHORTEN_MENUS);
   ui.auto_save_prefs = FALSE;
   ui.bg_apply_all_pages = FALSE;
+  ui.new_page_bg_from_pdf = FALSE;
   ui.use_erasertip = FALSE;
-  ui.window_default_width = 720;
-  ui.window_default_height = 480;
+  ui.window_default_width = 1000;
+  ui.window_default_height = 700;
   ui.maximize_at_start = FALSE;
   ui.fullscreen = FALSE;
   ui.scrollbar_step_increment = 30;
@@ -1492,6 +1717,7 @@ void init_config_default(void)
   ui.zoom_step_factor = 1.5;
   ui.progressive_bg = TRUE;
   ui.print_ruling = TRUE;
+  ui.exportpdf_prefer_legacy = FALSE;
   ui.default_unit = UNIT_CM;
   ui.default_path = NULL;
   ui.default_image = NULL;
@@ -1503,6 +1729,14 @@ void init_config_default(void)
   ui.button_switch_mapping = FALSE;
   ui.autoload_pdf_xoj = FALSE;
   ui.poppler_force_cairo = FALSE;
+  ui.touch_as_handtool = FALSE;
+  ui.pen_disables_touch = FALSE;
+  ui.device_for_touch = g_strdup(DEFAULT_DEVICE_FOR_TOUCH);
+  ui.autosave_enabled = FALSE;
+  ui.autosave_filename_list = NULL;
+  ui.autosave_delay = 5;
+  ui.autosave_loop_running = FALSE;
+  ui.autosave_need_catchup = FALSE;
   
   // the default UI vertical order
   ui.vertical_order[0][0] = 1; 
@@ -1519,6 +1753,7 @@ void init_config_default(void)
   for (i=1; i<=NUM_BUTTONS; i++) {
     ui.toolno[i] = TOOL_ERASER;
   }
+  ui.toolno[NUM_BUTTONS+1] = TOOL_HAND; // special hand mapping
   for (i=0; i<=NUM_BUTTONS; i++)
     ui.linked_brush[i] = BRUSH_LINKED;
   ui.brushes[0][TOOL_PEN].color_no = COLOR_BLACK;
@@ -1540,6 +1775,7 @@ void init_config_default(void)
   PDFTOPPM_PRINTING_DPI = 150;
   
   ui.hiliter_opacity = 0.5;
+  ui.pen_cursor = FALSE;
   
 #if GTK_CHECK_VERSION(2,10,0)
   ui.print_settings = NULL;
@@ -1621,23 +1857,44 @@ void save_config_to_file(void)
     _(" the multiplicative factor for zoom in/out"),
     g_strdup_printf("%.3f", ui.zoom_step_factor));
   update_keyval("general", "view_continuous",
-    _(" document view (true = continuous, false = single page)"),
-    g_strdup(ui.view_continuous?"true":"false"));
+    _(" continuous view (false = one page, true = continuous, horiz = horizontal)"),
+    g_strdup(view_mode_names[ui.view_continuous]));
   update_keyval("general", "use_xinput",
     _(" use XInput extensions (true/false)"),
     g_strdup(ui.allow_xinput?"true":"false"));
   update_keyval("general", "discard_corepointer",
     _(" discard Core Pointer events in XInput mode (true/false)"),
     g_strdup(ui.discard_corepointer?"true":"false"));
+  update_keyval("general", "ignore_other_devices",
+    _(" ignore events from other devices while drawing (true/false)"),
+    g_strdup(ui.ignore_other_devices?"true":"false"));
+  update_keyval("general", "ignore_btn_reported_up",
+    _(" do not worry if device reports button isn't pressed while drawing (true/false)"),
+    g_strdup(ui.ignore_btn_reported_up?"true":"false"));
   update_keyval("general", "use_erasertip",
     _(" always map eraser tip to eraser (true/false)"),
     g_strdup(ui.use_erasertip?"true":"false"));
+  update_keyval("general", "touchscreen_as_hand_tool",
+    _(" always map touchscreen device to hand tool (true/false) (requires separate pen and touch devices)"),
+    g_strdup(ui.touch_as_handtool?"true":"false"));
+  update_keyval("general", "pen_disables_touch",
+    _(" disable touchscreen device when pen is in proximity (true/false) (requires separate pen and touch devices)"),
+    g_strdup(ui.pen_disables_touch?"true":"false"));
+  update_keyval("general", "touchscreen_device_name",
+    _(" name of touchscreen device for touchscreen_as_hand_tool"),
+    g_strdup(ui.device_for_touch));
   update_keyval("general", "buttons_switch_mappings",
     _(" buttons 2 and 3 switch mappings instead of drawing (useful for some tablets) (true/false)"),
     g_strdup(ui.button_switch_mapping?"true":"false"));
   update_keyval("general", "autoload_pdf_xoj",
     _(" automatically load filename.pdf.xoj instead of filename.pdf (true/false)"),
     g_strdup(ui.autoload_pdf_xoj?"true":"false"));
+  update_keyval("general", "autosave_enabled",
+    _(" enable periodic autosaves (true/false)"),
+    g_strdup(ui.autosave_enabled?"true":"false"));
+  update_keyval("general", "autosave_delay",
+    _(" delay for periodic autosaves (in seconds)"),
+    g_strdup_printf("%d", ui.autosave_delay));
   update_keyval("general", "default_path",
     _(" default path for open/save (leave blank for current directory)"),
     g_strdup((ui.default_path!=NULL)?ui.default_path:""));
@@ -1674,6 +1931,9 @@ void save_config_to_file(void)
   update_keyval("general", "poppler_force_cairo",
     _(" force PDF rendering through cairo (slower but nicer) (true/false)"),
     g_strdup(ui.poppler_force_cairo?"true":"false"));
+  update_keyval("general", "exportpdf_prefer_legacy",
+    _(" prefer xournal's own PDF code for exporting PDFs (true/false)"),
+    g_strdup(ui.exportpdf_prefer_legacy?"true":"false"));
 
   update_keyval("paper", "width",
     _(" the default page width, in points (1/72 in)"),
@@ -1698,6 +1958,9 @@ void save_config_to_file(void)
   update_keyval("paper", "print_ruling",
     _(" include paper ruling when printing or exporting to PDF (true/false)"),
     g_strdup(ui.print_ruling?"true":"false"));
+  update_keyval("paper", "new_page_duplicates_bg",
+    _(" when creating a new page, duplicate a PDF or image background instead of using default paper (true/false)"),
+    g_strdup(ui.new_page_bg_from_pdf?"true":"false"));
   update_keyval("paper", "progressive_bg",
     _(" just-in-time update of page backgrounds (true/false)"),
     g_strdup(ui.progressive_bg?"true":"false"));
@@ -1711,6 +1974,9 @@ void save_config_to_file(void)
   update_keyval("tools", "startup_tool",
     _(" selected tool at startup (pen, eraser, highlighter, selectregion, selectrect, vertspace, hand, image)"),
     g_strdup(tool_names[ui.startuptool]));
+  update_keyval("tools", "pen_cursor",
+    _(" Use the pencil from cursor theme instead of a color dot (true/false)"),
+    g_strdup(ui.pen_cursor?"true":"false"));
   update_keyval("tools", "pen_color",
     _(" default pen color"),
     (ui.default_brushes[TOOL_PEN].color_no>=0)?
@@ -1827,7 +2093,7 @@ void save_config_to_file(void)
 
   buf = g_key_file_to_data(ui.config_data, NULL, NULL);
   if (buf == NULL) return;
-  f = fopen(ui.configfile, "w");
+  f = g_fopen(ui.configfile, "w");
   if (f==NULL) { g_free(buf); return; }
   fputs(buf, f);
   fclose(f);
@@ -1935,7 +2201,7 @@ gboolean parse_keyval_boolean(const gchar *group, const gchar *key, gboolean *va
   if (!g_ascii_strcasecmp(ret, "false")) 
     { *val = FALSE; g_free(ret); return TRUE; }
   g_free(ret);
-  return FALSE;
+  return TRUE;
 }
 
 gboolean parse_keyval_string(const gchar *group, const gchar *key, gchar **val)
@@ -2019,12 +2285,20 @@ void load_config_from_file(void)
   parse_keyval_int("general", "scrollbar_speed", &ui.scrollbar_step_increment, 1, 5000);
   parse_keyval_int("general", "zoom_dialog_increment", &ui.zoom_step_increment, 1, 500);
   parse_keyval_float("general", "zoom_step_factor", &ui.zoom_step_factor, 1., 5.);
-  parse_keyval_boolean("general", "view_continuous", &ui.view_continuous);
+  parse_keyval_enum("general", "view_continuous", &ui.view_continuous, view_mode_names, 3);
   parse_keyval_boolean("general", "use_xinput", &ui.allow_xinput);
   parse_keyval_boolean("general", "discard_corepointer", &ui.discard_corepointer);
+  parse_keyval_boolean("general", "ignore_other_devices", &ui.ignore_other_devices);
+  parse_keyval_boolean("general", "ignore_btn_reported_up", &ui.ignore_btn_reported_up);
   parse_keyval_boolean("general", "use_erasertip", &ui.use_erasertip);
+  parse_keyval_boolean("general", "touchscreen_as_hand_tool", &ui.touch_as_handtool);
+  parse_keyval_boolean("general", "pen_disables_touch", &ui.pen_disables_touch);
+  if (parse_keyval_string("general", "touchscreen_device_name", &str))
+    if (str!=NULL) ui.device_for_touch = str;
   parse_keyval_boolean("general", "buttons_switch_mappings", &ui.button_switch_mapping);
   parse_keyval_boolean("general", "autoload_pdf_xoj", &ui.autoload_pdf_xoj);
+  parse_keyval_boolean("general", "autosave_enabled", &ui.autosave_enabled);
+  parse_keyval_int("general", "autosave_delay", &ui.autosave_delay, 1, 3600);
   parse_keyval_string("general", "default_path", &ui.default_path);
   parse_keyval_boolean("general", "pressure_sensitivity", &ui.pressure_sensitivity);
   parse_keyval_float("general", "width_minimum_multiplier", &ui.width_minimum_multiplier, 0., 10.);
@@ -2039,6 +2313,7 @@ void load_config_from_file(void)
   parse_keyval_float("general", "highlighter_opacity", &ui.hiliter_opacity, 0., 1.);
   parse_keyval_boolean("general", "autosave_prefs", &ui.auto_save_prefs);
   parse_keyval_boolean("general", "poppler_force_cairo", &ui.poppler_force_cairo);
+  parse_keyval_boolean("general", "exportpdf_prefer_legacy", &ui.exportpdf_prefer_legacy);
   
   parse_keyval_float("paper", "width", &ui.default_page.width, 1., 5000.);
   parse_keyval_float("paper", "height", &ui.default_page.height, 1., 5000.);
@@ -2050,11 +2325,13 @@ void load_config_from_file(void)
   parse_keyval_enum("paper", "default_unit", &ui.default_unit, unit_names, 4);
   parse_keyval_boolean("paper", "progressive_bg", &ui.progressive_bg);
   parse_keyval_boolean("paper", "print_ruling", &ui.print_ruling);
+  parse_keyval_boolean("paper", "new_page_duplicates_bg", &ui.new_page_bg_from_pdf);
   parse_keyval_int("paper", "gs_bitmap_dpi", &GS_BITMAP_DPI, 1, 1200);
   parse_keyval_int("paper", "pdftoppm_printing_dpi", &PDFTOPPM_PRINTING_DPI, 1, 1200);
 
   parse_keyval_enum("tools", "startup_tool", &ui.startuptool, tool_names, NUM_TOOLS);
   ui.toolno[0] = ui.startuptool;
+  parse_keyval_boolean("tools", "pen_cursor", &ui.pen_cursor);
   parse_keyval_enum_color("tools", "pen_color", 
      &(ui.brushes[0][TOOL_PEN].color_no), &(ui.brushes[0][TOOL_PEN].color_rgba),
      color_names, predef_colors_rgba, COLOR_MAX);

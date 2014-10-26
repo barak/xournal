@@ -22,6 +22,7 @@
 #include <gtk/gtk.h>
 #include <libgnomecanvas/libgnomecanvas.h>
 #include <gdk/gdkkeysyms.h>
+#include <time.h>
 
 #include "xournal.h"
 #include "xo-interface.h"
@@ -51,6 +52,40 @@ double predef_thickness[NUM_STROKE_TOOLS][THICKNESS_MAX] =
     { 2.83, 2.83, 8.50, 19.84, 19.84 }, // highlighter thicknesses = 1, 3, 7 mm
   };
 
+// my own basename() replacement; allows windows filenames even on linux
+
+gchar *xo_basename(gchar *s, gboolean xplatform)
+{
+  gchar *p;
+
+  p = strrchr(s, G_DIR_SEPARATOR);
+  if (p == NULL && G_DIR_SEPARATOR != '/') p = strrchr(s, '/');
+  if (xplatform && p == NULL && G_DIR_SEPARATOR != '\\') p = strrchr(s, '\\');
+  if (p != NULL) return p+1; // dir separator found
+  if (xplatform || G_DIR_SEPARATOR == '\\') { // windows drive letters
+    if (g_ascii_isalpha(s[0]) && s[1]==':') return s+2;
+  }
+  return s; // whole string
+}
+
+// candidate xoj filename for save, save-as, autosave, etc.
+
+gchar *candidate_save_filename(void)
+{
+  time_t curtime;
+  char stime[30];
+  
+  if (ui.filename != NULL) return g_strdup(ui.filename);
+  if (bgpdf.status!=STATUS_NOT_INIT && bgpdf.file_domain == DOMAIN_ABSOLUTE 
+        && bgpdf.filename != NULL)
+    return g_strdup_printf("%s.xoj", bgpdf.filename->s);
+  curtime = time(NULL);
+  strftime(stime, 30, "%Y-%m-%d-Note-%H-%M.xoj", localtime(&curtime));
+  if (ui.default_path!=NULL) 
+    return g_strdup_printf("%s/%s", ui.default_path, stime);
+  else return g_strdup(stime);
+}
+
 // some manipulation functions
 
 struct Page *new_page(struct Page *template)
@@ -62,10 +97,13 @@ struct Page *new_page(struct Page *template)
   l->nitems = 0;
   pg->layers = g_list_append(NULL, l);
   pg->nlayers = 1;
-  pg->bg = (struct Background *)g_memdup(template->bg, sizeof(struct Background));
+  if (template->bg->type != BG_SOLID && !ui.new_page_bg_from_pdf)
+    pg->bg = (struct Background *)g_memdup(ui.default_page.bg, sizeof(struct Background));
+  else 
+    pg->bg = (struct Background *)g_memdup(template->bg, sizeof(struct Background));
   pg->bg->canvas_item = NULL;
   if (pg->bg->type == BG_PIXMAP || pg->bg->type == BG_PDF) {
-    gdk_pixbuf_ref(pg->bg->pixbuf);
+    g_object_ref(pg->bg->pixbuf);
     refstring_ref(pg->bg->filename);
   }
   pg->group = (GnomeCanvasGroup *) gnome_canvas_item_new(
@@ -113,19 +151,37 @@ void set_current_page(gdouble *pt)
 
   page_change = FALSE;
   tmppage = ui.cur_page;
-  while (ui.view_continuous && (pt[1] < - VIEW_CONTINUOUS_SKIP)) {
-    if (ui.pageno == 0) break;
-    page_change = TRUE;
-    ui.pageno--;
-    tmppage = g_list_nth_data(journal.pages, ui.pageno);
-    pt[1] += tmppage->height + VIEW_CONTINUOUS_SKIP;
+  if (ui.view_continuous == VIEW_MODE_CONTINUOUS) {
+    while (pt[1] < - VIEW_CONTINUOUS_SKIP) {
+      if (ui.pageno == 0) break;
+      page_change = TRUE;
+      ui.pageno--;
+      tmppage = g_list_nth_data(journal.pages, ui.pageno);
+      pt[1] += tmppage->height + VIEW_CONTINUOUS_SKIP;
+    }
+    while (pt[1] > tmppage->height + VIEW_CONTINUOUS_SKIP) {
+      if (ui.pageno == journal.npages-1) break;
+      pt[1] -= tmppage->height + VIEW_CONTINUOUS_SKIP;
+      page_change = TRUE;
+      ui.pageno++;
+      tmppage = g_list_nth_data(journal.pages, ui.pageno);
+    }
   }
-  while (ui.view_continuous && (pt[1] > tmppage->height + VIEW_CONTINUOUS_SKIP)) {
-    if (ui.pageno == journal.npages-1) break;
-    pt[1] -= tmppage->height + VIEW_CONTINUOUS_SKIP;
-    page_change = TRUE;
-    ui.pageno++;
-    tmppage = g_list_nth_data(journal.pages, ui.pageno);
+  if (ui.view_continuous == VIEW_MODE_HORIZONTAL) {
+    while (pt[0] < - VIEW_CONTINUOUS_SKIP) {
+      if (ui.pageno == 0) break;
+      page_change = TRUE;
+      ui.pageno--;
+      tmppage = g_list_nth_data(journal.pages, ui.pageno);
+      pt[0] += tmppage->width + VIEW_CONTINUOUS_SKIP;
+    }
+    while (pt[0] > tmppage->width + VIEW_CONTINUOUS_SKIP) {
+      if (ui.pageno == journal.npages-1) break;
+      pt[0] -= tmppage->width + VIEW_CONTINUOUS_SKIP;
+      page_change = TRUE;
+      ui.pageno++;
+      tmppage = g_list_nth_data(journal.pages, ui.pageno);
+    }
   }
   if (page_change) do_switch_page(ui.pageno, FALSE, FALSE);
 }
@@ -155,6 +211,7 @@ void prepare_new_undo(void)
   u->multiop = 0;
   undo = u;
   ui.saved = FALSE;
+  ui.need_autosave = TRUE;
   clear_redo_stack();
 }
 
@@ -204,7 +261,7 @@ void clear_redo_stack(void)
     else if (redo->type == ITEM_NEW_BG_ONE || redo->type == ITEM_NEW_BG_RESIZE
           || redo->type == ITEM_NEW_DEFAULT_BG) {
       if (redo->bg->type == BG_PIXMAP || redo->bg->type == BG_PDF) {
-        if (redo->bg->pixbuf!=NULL) gdk_pixbuf_unref(redo->bg->pixbuf);
+        if (redo->bg->pixbuf!=NULL) g_object_unref(redo->bg->pixbuf);
         refstring_unref(redo->bg->filename);
       }
       g_free(redo->bg);
@@ -276,7 +333,7 @@ void clear_undo_stack(void)
     else if (undo->type == ITEM_NEW_BG_ONE || undo->type == ITEM_NEW_BG_RESIZE
           || undo->type == ITEM_NEW_DEFAULT_BG) {
       if (undo->bg->type == BG_PIXMAP || undo->bg->type == BG_PDF) {
-        if (undo->bg->pixbuf!=NULL) gdk_pixbuf_unref(undo->bg->pixbuf);
+        if (undo->bg->pixbuf!=NULL) g_object_unref(undo->bg->pixbuf);
         refstring_unref(undo->bg->filename);
       }
       g_free(undo->bg);
@@ -333,7 +390,7 @@ void delete_page(struct Page *pg)
   if (pg->group!=NULL) gtk_object_destroy(GTK_OBJECT(pg->group));
               // this also destroys the background's canvas items
   if (pg->bg->type == BG_PIXMAP || pg->bg->type == BG_PDF) {
-    if (pg->bg->pixbuf != NULL) gdk_pixbuf_unref(pg->bg->pixbuf);
+    if (pg->bg->pixbuf != NULL) g_object_unref(pg->bg->pixbuf);
     if (pg->bg->filename != NULL) refstring_unref(pg->bg->filename);
   }
   g_free(pg->bg);
@@ -346,8 +403,10 @@ void delete_layer(struct Layer *l)
   
   while (l->items!=NULL) {
     item = (struct Item *)l->items->data;
-    if (item->type == ITEM_STROKE && item->path != NULL) 
+    if (item->type == ITEM_STROKE && item->path != NULL) {
       gnome_canvas_points_free(item->path);
+      if (item->brush.variable_width) g_free(item->widths);
+    }
     if (item->type == ITEM_TEXT) {
       g_free(item->font_name); g_free(item->text);
     }
@@ -502,8 +561,25 @@ double get_pressure_multiplier(GdkEvent *event)
 
   rawpressure = axes[2]/(device->axes[2].max - device->axes[2].min);
   if (!finite_sized(rawpressure)) return 1.0;
-
+  if (rawpressure <= 0. || rawpressure >= 1.0) return 1.0;
+  
   return ((1-rawpressure)*ui.width_minimum_multiplier + rawpressure*ui.width_maximum_multiplier);
+}
+
+
+void emergency_enable_xinput(GdkInputMode mode)
+{
+  GList *dev_list;
+  GdkDevice *dev;
+
+  gdk_flush();
+  gdk_error_trap_push();
+  for (dev_list = gdk_devices_list(); dev_list != NULL; dev_list = dev_list->next) {
+    dev = GDK_DEVICE(dev_list->data);
+    gdk_device_set_mode(dev, mode);
+  }
+  gdk_flush();
+  gdk_error_trap_pop();
 }
 
 void update_item_bbox(struct Item *item)
@@ -548,6 +624,7 @@ void make_canvas_item_one(GnomeCanvasGroup *group, struct Item *item)
 {
   PangoFontDescription *font_desc;
   GnomeCanvasPoints points;
+  GtkWidget *dialog;
   int j;
 
   if (item->type == ITEM_STROKE) {
@@ -573,6 +650,15 @@ void make_canvas_item_one(GnomeCanvasGroup *group, struct Item *item)
     }
   }
   if (item->type == ITEM_TEXT) {
+#ifdef WIN32  // fontconfig cache generation takes forever, show hourglass
+    if (!ui.warned_generate_fontconfig) {
+      dialog = gtk_message_dialog_new(GTK_WINDOW(winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
+         GTK_MESSAGE_OTHER, GTK_BUTTONS_NONE, _("Generating fontconfig library cache, please be patient..."));
+      gtk_window_set_title(GTK_WINDOW(dialog), _("Generating fontconfig cache..."));
+      gtk_widget_show_all(dialog);
+      set_cursor_busy(TRUE);
+    }
+#endif
     font_desc = pango_font_description_from_string(item->font_name);
     pango_font_description_set_absolute_size(font_desc, 
             item->font_size*ui.zoom*PANGO_SCALE);
@@ -582,6 +668,13 @@ void make_canvas_item_one(GnomeCanvasGroup *group, struct Item *item)
           "font-desc", font_desc, "fill-color-rgba", item->brush.color_rgba,
           "text", item->text, NULL);
     update_item_bbox(item);
+#ifdef WIN32 // done
+    if (!ui.warned_generate_fontconfig)  {
+      ui.warned_generate_fontconfig = TRUE;
+      gtk_widget_destroy(dialog);
+      set_cursor_busy(FALSE);
+    }
+#endif
   }
   if (item->type == ITEM_IMAGE) {
     item->canvas_item = gnome_canvas_item_new(group,
@@ -722,14 +815,25 @@ void update_canvas_bg(struct Page *pg)
 
 gboolean is_visible(struct Page *pg)
 {
-  GtkAdjustment *v_adj;
-  double ytop, ybot;
+  GtkAdjustment *adj;
+  double top, bottom;
   
-  if (!ui.view_continuous) return (pg == ui.cur_page);
-  v_adj = gtk_layout_get_vadjustment(GTK_LAYOUT(canvas));
-  ytop = v_adj->value/ui.zoom;
-  ybot = (v_adj->value + v_adj->page_size) / ui.zoom;
-  return (MAX(ytop, pg->voffset) < MIN(ybot, pg->voffset+pg->height));
+  switch (ui.view_continuous) {
+    case VIEW_MODE_ONE_PAGE: 
+      return (pg == ui.cur_page);
+    case VIEW_MODE_CONTINUOUS:
+      adj = gtk_layout_get_vadjustment(GTK_LAYOUT(canvas));
+      top = adj->value/ui.zoom;
+      bottom = (adj->value + adj->page_size) / ui.zoom;
+      return (MAX(top, pg->voffset) < MIN(bottom, pg->voffset+pg->height));
+    case VIEW_MODE_HORIZONTAL:
+      adj = gtk_layout_get_hadjustment(GTK_LAYOUT(canvas));
+      top = adj->value/ui.zoom;
+      bottom = (adj->value + adj->page_size) / ui.zoom;
+      return (MAX(top, pg->hoffset) < MIN(bottom, pg->hoffset+pg->width));
+  }
+  // uh? not a known case
+  return FALSE;
 }
 
 void rescale_bg_pixmaps(void)
@@ -1205,8 +1309,15 @@ void update_mappings_menu(void)
 {
   gtk_widget_set_sensitive(GET_COMPONENT("optionsButtonMappings"), ui.use_xinput);
   gtk_widget_set_sensitive(GET_COMPONENT("optionsPressureSensitive"), ui.use_xinput);
+  gtk_widget_set_sensitive(GET_COMPONENT("optionsTouchAsHandTool"), ui.use_xinput);
+  gtk_widget_set_sensitive(GET_COMPONENT("optionsPenDisablesTouch"), ui.use_xinput);
+  gtk_widget_set_sensitive(GET_COMPONENT("optionsDesignateTouchscreen"), ui.use_xinput);
   gtk_check_menu_item_set_active(
     GTK_CHECK_MENU_ITEM(GET_COMPONENT("optionsButtonMappings")), ui.use_erasertip);
+  gtk_check_menu_item_set_active(
+    GTK_CHECK_MENU_ITEM(GET_COMPONENT("optionsTouchAsHandTool")), ui.touch_as_handtool);
+  gtk_check_menu_item_set_active(
+    GTK_CHECK_MENU_ITEM(GET_COMPONENT("optionsPenDisablesTouch")), ui.pen_disables_touch);
   gtk_check_menu_item_set_active(
     GTK_CHECK_MENU_ITEM(GET_COMPONENT("optionsPressureSensitive")), ui.pressure_sensitivity);
 
@@ -1304,11 +1415,11 @@ void do_switch_page(int pg, gboolean rescroll, gboolean refresh_all)
   if (ui.progressive_bg) rescale_bg_pixmaps();
  
   if (rescroll) { // scroll and force a refresh
-/* -- this seems to cause some display bugs ??
-    gtk_adjustment_set_value(gtk_layout_get_vadjustment(GTK_LAYOUT(canvas)),
-      ui.cur_page->voffset*ui.zoom);  */
     gnome_canvas_get_scroll_offsets(canvas, &cx, &cy);
-    cy = ui.cur_page->voffset*ui.zoom;
+    if (ui.view_continuous == VIEW_MODE_HORIZONTAL)
+      cx = ui.cur_page->hoffset*ui.zoom;
+    else
+      cy = ui.cur_page->voffset*ui.zoom;
     gnome_canvas_scroll_to(canvas, cx, cy);
     
     if (refresh_all) 
@@ -1326,10 +1437,10 @@ void update_page_stuff(void)
   GList *pglist;
   GtkSpinButton *spin;
   struct Page *pg;
-  double vertpos, maxwidth;
+  double vertpos, maxwidth, horizpos, maxheight;
 
   // move the page groups to their rightful locations or hide them
-  if (ui.view_continuous) {
+  if (ui.view_continuous == VIEW_MODE_CONTINUOUS) {
     vertpos = 0.; 
     maxwidth = 0.;
     for (i=0, pglist = journal.pages; pglist!=NULL; i++, pglist = pglist->next) {
@@ -1345,7 +1456,25 @@ void update_page_stuff(void)
     }
     vertpos -= VIEW_CONTINUOUS_SKIP;
     gnome_canvas_set_scroll_region(canvas, 0, 0, maxwidth, vertpos);
-  } else {
+  } 
+  else if (ui.view_continuous == VIEW_MODE_HORIZONTAL) {
+    horizpos = 0.; 
+    maxheight = 0.;
+    for (i=0, pglist = journal.pages; pglist!=NULL; i++, pglist = pglist->next) {
+      pg = (struct Page *)pglist->data;
+      if (pg->group!=NULL) {
+        pg->hoffset = horizpos; pg->voffset = 0.;
+        gnome_canvas_item_set(GNOME_CANVAS_ITEM(pg->group), 
+            "x", pg->hoffset, "y", pg->voffset, NULL);
+        gnome_canvas_item_show(GNOME_CANVAS_ITEM(pg->group));
+      }
+      horizpos += pg->width + VIEW_CONTINUOUS_SKIP;
+      if (pg->height > maxheight) maxheight = pg->height;
+    }
+    horizpos -= VIEW_CONTINUOUS_SKIP;
+    gnome_canvas_set_scroll_region(canvas, 0, 0, horizpos, maxheight);
+  } 
+  else { // VIEW_MODE_ONE_PAGE
     for (pglist = journal.pages; pglist!=NULL; pglist = pglist->next) {
       pg = (struct Page *)pglist->data;
       if (pg == ui.cur_page && pg->group!=NULL) {
@@ -1390,9 +1519,12 @@ void update_page_stuff(void)
   
   // update the paper-style menu radio buttons
   
-  if (ui.view_continuous)
+  if (ui.view_continuous == VIEW_MODE_CONTINUOUS)
     gtk_check_menu_item_set_active(
        GTK_CHECK_MENU_ITEM(GET_COMPONENT("viewContinuous")), TRUE);
+  else if (ui.view_continuous == VIEW_MODE_HORIZONTAL)
+    gtk_check_menu_item_set_active(
+       GTK_CHECK_MENU_ITEM(GET_COMPONENT("viewHorizontal")), TRUE);
   else
     gtk_check_menu_item_set_active(
        GTK_CHECK_MENU_ITEM(GET_COMPONENT("viewOnePage")), TRUE);
@@ -1501,14 +1633,12 @@ void update_file_name(char *filename)
     gtk_window_set_title(GTK_WINDOW (winMain), _("Xournal"));
     return;
   }
-  p = g_utf8_strrchr(filename, -1, '/');
-  if (p == NULL) p = filename; 
-  else p = g_utf8_next_char(p);
+  p = xo_basename(filename, FALSE);
   g_snprintf(tmp, 100, _("Xournal - %s"), p);
   gtk_window_set_title(GTK_WINDOW (winMain), tmp);
   new_mru_entry(filename);
 
-  if (filename[0]=='/') {
+  if (p!=filename) {
     if (ui.default_path!=NULL) g_free(ui.default_path);
     ui.default_path = g_path_get_dirname(filename);
   }

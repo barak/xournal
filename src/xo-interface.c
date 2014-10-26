@@ -71,6 +71,7 @@ create_winMain (void)
   GtkWidget *menuView_menu;
   GSList *viewContinuous_group = NULL;
   GtkWidget *viewContinuous;
+  GtkWidget *viewHorizontal;
   GtkWidget *viewOnePage;
   GtkWidget *separator20;
   GtkWidget *viewFullscreen;
@@ -102,6 +103,7 @@ create_winMain (void)
   GtkWidget *journalNewPageBefore;
   GtkWidget *journalNewPageAfter;
   GtkWidget *journalNewPageEnd;
+  GtkWidget *journalNewPageKeepsBG;
   GtkWidget *journalDeletePage;
   GtkWidget *separator7;
   GtkWidget *journalNewLayer;
@@ -207,8 +209,14 @@ create_winMain (void)
   GtkWidget *menuOptions;
   GtkWidget *menuOptions_menu;
   GtkWidget *optionsUseXInput;
+  GtkWidget *pen_and_touch;
+  GtkWidget *pen_and_touch_menu;
   GtkWidget *optionsButtonMappings;
   GtkWidget *optionsPressureSensitive;
+  GtkWidget *optionsButtonSwitchMapping;
+  GtkWidget *optionsTouchAsHandTool;
+  GtkWidget *optionsPenDisablesTouch;
+  GtkWidget *optionsDesignateTouchscreen;
   GtkWidget *button2_mapping;
   GtkWidget *button2_mapping_menu;
   GSList *button2Pen_group = NULL;
@@ -243,13 +251,15 @@ create_winMain (void)
   GtkWidget *button3LinkBrush;
   GtkWidget *button3CopyBrush;
   GtkWidget *button3NABrush;
-  GtkWidget *optionsButtonSwitchMapping;
   GtkWidget *separator18;
   GtkWidget *optionsProgressiveBG;
   GtkWidget *optionsPrintRuling;
+  GtkWidget *optionsLegacyPDFExport;
   GtkWidget *optionsAutoloadPdfXoj;
+  GtkWidget *optionsAutosaveXoj;
   GtkWidget *optionsLeftHanded;
   GtkWidget *optionsShortenMenus;
+  GtkWidget *optionsPenCursor;
   GtkWidget *separator21;
   GtkWidget *optionsAutoSavePrefs;
   GtkWidget *optionsSavePreferences;
@@ -530,6 +540,12 @@ create_winMain (void)
   gtk_container_add (GTK_CONTAINER (menuView_menu), viewContinuous);
   gtk_check_menu_item_set_active (GTK_CHECK_MENU_ITEM (viewContinuous), TRUE);
 
+  viewHorizontal = gtk_radio_menu_item_new_with_mnemonic (viewContinuous_group, _("Horizontal"));
+  viewContinuous_group = gtk_radio_menu_item_get_group (GTK_RADIO_MENU_ITEM (viewHorizontal));
+  gtk_widget_show (viewHorizontal);
+  gtk_container_add (GTK_CONTAINER (menuView_menu), viewHorizontal);
+  gtk_check_menu_item_set_active (GTK_CHECK_MENU_ITEM (viewHorizontal), TRUE);
+
   viewOnePage = gtk_radio_menu_item_new_with_mnemonic (viewContinuous_group, _("_One Page"));
   viewContinuous_group = gtk_radio_menu_item_get_group (GTK_RADIO_MENU_ITEM (viewOnePage));
   gtk_widget_show (viewOnePage);
@@ -684,6 +700,10 @@ create_winMain (void)
   journalNewPageEnd = gtk_menu_item_new_with_mnemonic (_("New Page At _End"));
   gtk_widget_show (journalNewPageEnd);
   gtk_container_add (GTK_CONTAINER (menuJournal_menu), journalNewPageEnd);
+
+  journalNewPageKeepsBG = gtk_check_menu_item_new_with_mnemonic (_("New Pages Keep Background"));
+  gtk_widget_show (journalNewPageKeepsBG);
+  gtk_container_add (GTK_CONTAINER (menuJournal_menu), journalNewPageKeepsBG);
 
   journalDeletePage = gtk_menu_item_new_with_mnemonic (_("_Delete Page"));
   gtk_widget_show (journalDeletePage);
@@ -1201,13 +1221,36 @@ create_winMain (void)
   gtk_widget_show (optionsUseXInput);
   gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsUseXInput);
 
+  pen_and_touch = gtk_menu_item_new_with_mnemonic (_("_Pen and Touch"));
+  gtk_widget_show (pen_and_touch);
+  gtk_container_add (GTK_CONTAINER (menuOptions_menu), pen_and_touch);
+
+  pen_and_touch_menu = gtk_menu_new ();
+  gtk_menu_item_set_submenu (GTK_MENU_ITEM (pen_and_touch), pen_and_touch_menu);
+
   optionsButtonMappings = gtk_check_menu_item_new_with_mnemonic (_("_Eraser Tip"));
   gtk_widget_show (optionsButtonMappings);
-  gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsButtonMappings);
+  gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsButtonMappings);
 
   optionsPressureSensitive = gtk_check_menu_item_new_with_mnemonic (_("_Pressure sensitivity"));
   gtk_widget_show (optionsPressureSensitive);
-  gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsPressureSensitive);
+  gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsPressureSensitive);
+
+  optionsButtonSwitchMapping = gtk_check_menu_item_new_with_mnemonic (_("Buttons Switch Mappings"));
+  gtk_widget_show (optionsButtonSwitchMapping);
+  gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsButtonSwitchMapping);
+
+  optionsTouchAsHandTool = gtk_check_menu_item_new_with_mnemonic (_("_Touchscreen as Hand Tool"));
+  gtk_widget_show (optionsTouchAsHandTool);
+  gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsTouchAsHandTool);
+
+  optionsPenDisablesTouch = gtk_check_menu_item_new_with_mnemonic (_("Pen disables Touch"));
+  gtk_widget_show (optionsPenDisablesTouch);
+  gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsPenDisablesTouch);
+
+  optionsDesignateTouchscreen = gtk_menu_item_new_with_mnemonic (_("Designate as Touchscreen..."));
+  gtk_widget_show (optionsDesignateTouchscreen);
+  gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsDesignateTouchscreen);
 
   button2_mapping = gtk_menu_item_new_with_mnemonic (_("Button _2 Mapping"));
   gtk_widget_show (button2_mapping);
@@ -1373,16 +1416,12 @@ create_winMain (void)
   gtk_container_add (GTK_CONTAINER (button3_mapping_menu), button3NABrush);
   gtk_check_menu_item_set_active (GTK_CHECK_MENU_ITEM (button3NABrush), TRUE);
 
-  optionsButtonSwitchMapping = gtk_check_menu_item_new_with_mnemonic (_("Buttons Switch Mappings"));
-  gtk_widget_show (optionsButtonSwitchMapping);
-  gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsButtonSwitchMapping);
-
   separator18 = gtk_separator_menu_item_new ();
   gtk_widget_show (separator18);
   gtk_container_add (GTK_CONTAINER (menuOptions_menu), separator18);
   gtk_widget_set_sensitive (separator18, FALSE);
 
-  optionsProgressiveBG = gtk_check_menu_item_new_with_mnemonic (_("_Progressive Backgrounds"));
+  optionsProgressiveBG = gtk_check_menu_item_new_with_mnemonic (_("Progressive _Backgrounds"));
   gtk_widget_show (optionsProgressiveBG);
   gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsProgressiveBG);
 
@@ -1390,9 +1429,17 @@ create_winMain (void)
   gtk_widget_show (optionsPrintRuling);
   gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsPrintRuling);
 
+  optionsLegacyPDFExport = gtk_check_menu_item_new_with_mnemonic (_("Legacy PDF Export"));
+  gtk_widget_show (optionsLegacyPDFExport);
+  gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsLegacyPDFExport);
+
   optionsAutoloadPdfXoj = gtk_check_menu_item_new_with_mnemonic (_("Autoload pdf.xoj"));
   gtk_widget_show (optionsAutoloadPdfXoj);
   gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsAutoloadPdfXoj);
+
+  optionsAutosaveXoj = gtk_check_menu_item_new_with_mnemonic (_("Auto-Save Files"));
+  gtk_widget_show (optionsAutosaveXoj);
+  gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsAutosaveXoj);
 
   optionsLeftHanded = gtk_check_menu_item_new_with_mnemonic (_("Left-Handed Scrollbar"));
   gtk_widget_show (optionsLeftHanded);
@@ -1401,6 +1448,10 @@ create_winMain (void)
   optionsShortenMenus = gtk_check_menu_item_new_with_mnemonic (_("Shorten _Menus"));
   gtk_widget_show (optionsShortenMenus);
   gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsShortenMenus);
+
+  optionsPenCursor = gtk_check_menu_item_new_with_mnemonic (_("Pencil Cursor"));
+  gtk_widget_show (optionsPenCursor);
+  gtk_container_add (GTK_CONTAINER (menuOptions_menu), optionsPenCursor);
 
   separator21 = gtk_separator_menu_item_new ();
   gtk_widget_show (separator21);
@@ -2060,6 +2111,9 @@ create_winMain (void)
   g_signal_connect ((gpointer) viewContinuous, "toggled",
                     G_CALLBACK (on_viewContinuous_activate),
                     NULL);
+  g_signal_connect ((gpointer) viewHorizontal, "toggled",
+                    G_CALLBACK (on_viewHorizontal_activate),
+                    NULL);
   g_signal_connect ((gpointer) viewOnePage, "toggled",
                     G_CALLBACK (on_viewOnePage_activate),
                     NULL);
@@ -2107,6 +2161,9 @@ create_winMain (void)
                     NULL);
   g_signal_connect ((gpointer) journalNewPageEnd, "activate",
                     G_CALLBACK (on_journalNewPageEnd_activate),
+                    NULL);
+  g_signal_connect ((gpointer) journalNewPageKeepsBG, "activate",
+                    G_CALLBACK (on_journalNewPageKeepsBG_activate),
                     NULL);
   g_signal_connect ((gpointer) journalDeletePage, "activate",
                     G_CALLBACK (on_journalDeletePage_activate),
@@ -2309,6 +2366,18 @@ create_winMain (void)
   g_signal_connect ((gpointer) optionsPressureSensitive, "activate",
                     G_CALLBACK (on_optionsPressureSensitive_activate),
                     NULL);
+  g_signal_connect ((gpointer) optionsButtonSwitchMapping, "toggled",
+                    G_CALLBACK (on_optionsButtonsSwitchMappings_activate),
+                    NULL);
+  g_signal_connect ((gpointer) optionsTouchAsHandTool, "activate",
+                    G_CALLBACK (on_optionsTouchAsHandTool_activate),
+                    NULL);
+  g_signal_connect ((gpointer) optionsPenDisablesTouch, "activate",
+                    G_CALLBACK (on_optionsPenDisablesTouch_activate),
+                    NULL);
+  g_signal_connect ((gpointer) optionsDesignateTouchscreen, "activate",
+                    G_CALLBACK (on_optionsDesignateTouchscreen_activate),
+                    NULL);
   g_signal_connect ((gpointer) button2Pen, "activate",
                     G_CALLBACK (on_button2Pen_activate),
                     NULL);
@@ -2375,23 +2444,29 @@ create_winMain (void)
   g_signal_connect ((gpointer) button3CopyBrush, "activate",
                     G_CALLBACK (on_button3CopyBrush_activate),
                     NULL);
-  g_signal_connect ((gpointer) optionsButtonSwitchMapping, "toggled",
-                    G_CALLBACK (on_optionsButtonsSwitchMappings_activate),
-                    NULL);
   g_signal_connect ((gpointer) optionsProgressiveBG, "activate",
                     G_CALLBACK (on_optionsProgressiveBG_activate),
                     NULL);
   g_signal_connect ((gpointer) optionsPrintRuling, "activate",
                     G_CALLBACK (on_optionsPrintRuling_activate),
                     NULL);
+  g_signal_connect ((gpointer) optionsLegacyPDFExport, "activate",
+                    G_CALLBACK (on_optionsLegacyPDFExport_activate),
+                    NULL);
   g_signal_connect ((gpointer) optionsAutoloadPdfXoj, "activate",
                     G_CALLBACK (on_optionsAutoloadPdfXoj_activate),
+                    NULL);
+  g_signal_connect ((gpointer) optionsAutosaveXoj, "activate",
+                    G_CALLBACK (on_optionsAutosaveXoj_activate),
                     NULL);
   g_signal_connect ((gpointer) optionsLeftHanded, "toggled",
                     G_CALLBACK (on_optionsLeftHanded_activate),
                     NULL);
   g_signal_connect ((gpointer) optionsShortenMenus, "toggled",
                     G_CALLBACK (on_optionsShortenMenus_activate),
+                    NULL);
+  g_signal_connect ((gpointer) optionsPenCursor, "toggled",
+                    G_CALLBACK (on_optionsPenCursor_activate),
                     NULL);
   g_signal_connect ((gpointer) optionsAutoSavePrefs, "toggled",
                     G_CALLBACK (on_optionsAutoSavePrefs_activate),
@@ -2595,6 +2670,7 @@ create_winMain (void)
   GLADE_HOOKUP_OBJECT (winMain, menuView, "menuView");
   GLADE_HOOKUP_OBJECT (winMain, menuView_menu, "menuView_menu");
   GLADE_HOOKUP_OBJECT (winMain, viewContinuous, "viewContinuous");
+  GLADE_HOOKUP_OBJECT (winMain, viewHorizontal, "viewHorizontal");
   GLADE_HOOKUP_OBJECT (winMain, viewOnePage, "viewOnePage");
   GLADE_HOOKUP_OBJECT (winMain, separator20, "separator20");
   GLADE_HOOKUP_OBJECT (winMain, viewFullscreen, "viewFullscreen");
@@ -2626,6 +2702,7 @@ create_winMain (void)
   GLADE_HOOKUP_OBJECT (winMain, journalNewPageBefore, "journalNewPageBefore");
   GLADE_HOOKUP_OBJECT (winMain, journalNewPageAfter, "journalNewPageAfter");
   GLADE_HOOKUP_OBJECT (winMain, journalNewPageEnd, "journalNewPageEnd");
+  GLADE_HOOKUP_OBJECT (winMain, journalNewPageKeepsBG, "journalNewPageKeepsBG");
   GLADE_HOOKUP_OBJECT (winMain, journalDeletePage, "journalDeletePage");
   GLADE_HOOKUP_OBJECT (winMain, separator7, "separator7");
   GLADE_HOOKUP_OBJECT (winMain, journalNewLayer, "journalNewLayer");
@@ -2723,8 +2800,14 @@ create_winMain (void)
   GLADE_HOOKUP_OBJECT (winMain, menuOptions, "menuOptions");
   GLADE_HOOKUP_OBJECT (winMain, menuOptions_menu, "menuOptions_menu");
   GLADE_HOOKUP_OBJECT (winMain, optionsUseXInput, "optionsUseXInput");
+  GLADE_HOOKUP_OBJECT (winMain, pen_and_touch, "pen_and_touch");
+  GLADE_HOOKUP_OBJECT (winMain, pen_and_touch_menu, "pen_and_touch_menu");
   GLADE_HOOKUP_OBJECT (winMain, optionsButtonMappings, "optionsButtonMappings");
   GLADE_HOOKUP_OBJECT (winMain, optionsPressureSensitive, "optionsPressureSensitive");
+  GLADE_HOOKUP_OBJECT (winMain, optionsButtonSwitchMapping, "optionsButtonSwitchMapping");
+  GLADE_HOOKUP_OBJECT (winMain, optionsTouchAsHandTool, "optionsTouchAsHandTool");
+  GLADE_HOOKUP_OBJECT (winMain, optionsPenDisablesTouch, "optionsPenDisablesTouch");
+  GLADE_HOOKUP_OBJECT (winMain, optionsDesignateTouchscreen, "optionsDesignateTouchscreen");
   GLADE_HOOKUP_OBJECT (winMain, button2_mapping, "button2_mapping");
   GLADE_HOOKUP_OBJECT (winMain, button2_mapping_menu, "button2_mapping_menu");
   GLADE_HOOKUP_OBJECT (winMain, button2Pen, "button2Pen");
@@ -2755,13 +2838,15 @@ create_winMain (void)
   GLADE_HOOKUP_OBJECT (winMain, button3LinkBrush, "button3LinkBrush");
   GLADE_HOOKUP_OBJECT (winMain, button3CopyBrush, "button3CopyBrush");
   GLADE_HOOKUP_OBJECT (winMain, button3NABrush, "button3NABrush");
-  GLADE_HOOKUP_OBJECT (winMain, optionsButtonSwitchMapping, "optionsButtonSwitchMapping");
   GLADE_HOOKUP_OBJECT (winMain, separator18, "separator18");
   GLADE_HOOKUP_OBJECT (winMain, optionsProgressiveBG, "optionsProgressiveBG");
   GLADE_HOOKUP_OBJECT (winMain, optionsPrintRuling, "optionsPrintRuling");
+  GLADE_HOOKUP_OBJECT (winMain, optionsLegacyPDFExport, "optionsLegacyPDFExport");
   GLADE_HOOKUP_OBJECT (winMain, optionsAutoloadPdfXoj, "optionsAutoloadPdfXoj");
+  GLADE_HOOKUP_OBJECT (winMain, optionsAutosaveXoj, "optionsAutosaveXoj");
   GLADE_HOOKUP_OBJECT (winMain, optionsLeftHanded, "optionsLeftHanded");
   GLADE_HOOKUP_OBJECT (winMain, optionsShortenMenus, "optionsShortenMenus");
+  GLADE_HOOKUP_OBJECT (winMain, optionsPenCursor, "optionsPenCursor");
   GLADE_HOOKUP_OBJECT (winMain, separator21, "separator21");
   GLADE_HOOKUP_OBJECT (winMain, optionsAutoSavePrefs, "optionsAutoSavePrefs");
   GLADE_HOOKUP_OBJECT (winMain, optionsSavePreferences, "optionsSavePreferences");

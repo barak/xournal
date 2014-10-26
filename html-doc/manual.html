@@ -24,7 +24,7 @@
   Xournal User's Manual
 </h2>
 <p style="font-size: 0.95em; text-align: center; color: rgb(0,0,0)">
- Version 0.4.7
+ Version 0.4.8
 </p>
 <hr />
 <p>
@@ -507,7 +507,7 @@ crashes when viewing long documents.
 <p>
 As of version 0.4.5, Xournal uses the gtk-print architecture for printing
 (previous versions used gnome-print). Xournal also includes a native PDF 
-printing feature.
+printing feature. 
 </p>
 <h3 class="subsub">Printing via gtk-print</h3>
 <p>
@@ -529,24 +529,24 @@ the next, so make sure to verify the settings.
 </p>
 <h3 class="subsub">Exporting to PDF</h3>
 <p>
-Xournal also provides its own PDF rendering
-engine. The "Export to PDF" command (in the File menu) produces a
-PDF-1.4 file from the currently loaded document. The pages of the
-resulting PDF file have the same size as in Xournal. Highlighter strokes
-are rendered in a partially transparent manner (note however that
-applications such as xpdf and ghostview do not always handle
-PDF transparency properly). Text items are rendered by embedding
-TrueType subsets or Type 1 fonts into the PDF document as appropriate.
+As of version 0.4.8, the "Export to PDF" command uses the poppler and cairo
+libraries to produce a PDF version of the currently loaded document.
+The pages of the resulting PDF file have the same size as in Xournal. 
+Highlighter strokes are rendered in a partially transparent manner. 
+Text items are rendered by embedding TrueType subsets or Type 1 fonts 
+into the PDF document as appropriate.
 </p>
 <p>
-Xournal includes a PDF file parser compatible with PDF format
-version 1.4; the compression features of PDF 1.5 are
-not supported. When exporting a document that uses PDF
+Xournal still provides its own PDF rendering engine, which was the default
+up to version 0.4.7 and continues to be used if "Legacy PDF Export" is 
+checked in the Options menu. This code includes a PDF file parser 
+compatible with PDF format version 1.4; the compression features of 
+PDF 1.5 are not supported. When exporting a document that uses PDF
 backgrounds, Xournal attempts to preserve most of the structure of
 the original PDF file (however, auxiliary data such as thumbnails, hyperlinks,
 and annotations are lost). If Xournal is unable to parse the PDF
-file, the backgrounds are converted to (compressed) bitmaps and a new
-PDF file is generated from scratch.
+file, the poppler/cairo renderer is used instead to generate a new PDF file
+from scratch.
 </p>
 <hr />
 <a name="configuration"></a>
@@ -717,12 +717,14 @@ Xournal is written by Denis Auroux
 <p>
 The source code includes contributions by the following people: 
 Alvaro, Kit Barnes, Eduardo de Barros Lima, Mathieu Bouchard, 
-Ole J&oslash;rgen Br&oslash;nner, Robert Buchholz, Vincenzo Ciancia, Luca de Cicco, 
-Michele Codutti, Robert Gerlach, Daniel German, Dirk Gerrits, Simon Guest,
+Ole J&oslash;rgen Br&oslash;nner, Robert Buchholz, William Chao, Vincenzo Ciancia, 
+Luca de Cicco, Michele Codutti, Robert Gerlach, Daniel German, 
+Dirk Gerrits, Simon Guest, Andreas Huettel,
 Lukasz Kaiser, Ian Woo Kim, Timo Kluck, David Kolibac, Danny Kukawka, 
-Stefan Lembach, Bob McElrath, Andy Neitzke, David Planella, Marco Poletti, 
-Alex Ray, Jean-Baptiste Rouquier, Victor Saase, Marco Souza, Mike Ter Louw, 
-Uwe Winter, Lu Zhihe.
+Stefan Lembach, Bob McElrath, Mutse, Andy Neitzke, David Planella, 
+Marco Poletti,  Alex Ray, Jean-Baptiste Rouquier, Victor Saase, 
+Hiroshi Saito, Luciano Siqueira, Marco Souza, Mike Ter Louw, 
+Mis Uszatek, Uwe Winter, Edward Z. Yang, Lu Zhihe.
 </p>
 <p style="font-size:0.9em">(Let me know if you are missing from this list or
 if your name is mis-spelled)</p>
@@ -750,6 +752,51 @@ Bug reports and suggestions can also be submitted on Xournal's
 <hr />
 <a name="changelog"></a>
 <h2 class="subtitle">Version history</h2>
+<p>
+Version 0.4.8 (June 30, 2014):
+<ul>
+<li>Features:
+<ul>
+     <li>option to auto-save documents and recover auto-saves (after Edward Yang, Aiwarrior, Timo Kluck)
+</li><li>new Export to PDF code using cairo (and config option to enable legacy code)
+</li><li>horizontal view mode
+</li><li>improved touchscreen handling
+</li><li>pencil cursor option (patch by Luciano Siqueira)
+</li><li>added "new pages duplicate background" option (new default is false)
+</li><li>updated Windows build and packaging instructions
+</li>
+</ul></li>
+<li>XInput device handling:
+<ul>
+     <li>ignore events from non-drawing devices by default (ignore_other_devices)
+</li><li>"touchscreen as hand tool" option (after Rumen Zarev and Daniel German)
+</li><li>"pen disables touchscreen" option; dialog box to designate touch device
+</li><li>tweaks to xinput event processing for touchscreens
+</li>
+</ul></li>
+<li>Bugfixes:
+<ul>
+     <li>generate cursors from pixbufs (fixes a Win32 bug)
+</li><li>work around Win32 bug: refuse paste if mismatched format
+</li><li>fix configure.in for automake-1.13 (Florian Bruhin, Andreas Huettel)
+</li><li>smoother icons for eraser and shapes buttons (by Colin Macdonald)
+</li><li>fix a cross-platform g_basename() issue (after Daniel German)
+</li><li>bugfix for file paths with non-English characters in Win32
+</li><li>add some margin around lasso selection rectangle (after Niklas Beisert) 
+</li><li>warn for fontconfig cache generation in Win32
+</li>
+</ul></li>
+<li>Translations:
+<ul>
+     <li>Chinese (simplified) translation (by Mutse)
+</li><li>updated German translation (Stefan Holtzhauer)
+</li><li>Polish translation (by Mis Uszatek)
+</li><li>Chinese (traditional) translation (William Chao)
+</li><li>Japanese translation (by Hiroshi Saito)
+</li>
+</ul></li>
+</ul>
+</p>
 <p>
 Version 0.4.7 (July 4, 2012):
 <ul>

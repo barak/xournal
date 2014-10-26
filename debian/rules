@@ -20,8 +20,18 @@ endif
 configure: configure-stamp
 configure-stamp:
 	dh_testdir
+	dh_autotools-dev_updateconfig
+	cp -a aclocal.m4 aclocal.m4.alt
+	cp -a missing missing.alt
+	cp -a Makefile.in Makefile.in.alt
+	cp -a install-sh install-sh.alt
+	cp -a depcomp depcomp.alt
+	cp -a configure configure.alt
+	cp -a src/Makefile.in src/Makefile.in.alt
+	cp -a src/ttsubset/Makefile.in src/ttsubset/Makefile.in.alt
 	# Configure the package.
 	./autogen.sh --prefix=/usr
+	dh_auto_configure -- $(shell dpkg-buildflags --export=configure)
 
 	touch configure-stamp
 
@@ -34,6 +44,15 @@ build-stamp: configure-stamp
 	# Compile the package.
 	$(MAKE)
 
+	# Put back all the copied files
+	mv aclocal.m4.alt aclocal.m4
+	mv missing.alt missing
+	mv Makefile.in.alt Makefile.in
+	mv install-sh.alt install-sh
+	mv depcomp.alt depcomp
+	mv configure.alt configure
+	mv src/Makefile.in.alt src/Makefile.in
+	mv src/ttsubset/Makefile.in.alt src/ttsubset/Makefile.in
 	touch build-stamp
 
 clean: 
@@ -47,10 +66,10 @@ clean:
 		rm -f src/xournal; \
         fi
 
-	rm -f aclocal.m4 config.h.in Makefile.in src/Makefile.in
 	rm -f configure-stamp build-stamp
-	rm -f depcomp install-sh missing configure
+	rm -f ar-lib compile
 
+	dh_autotools-dev_restoreconfig
 	dh_clean 
 
 install: build

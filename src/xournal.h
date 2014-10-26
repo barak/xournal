@@ -60,6 +60,9 @@
 
 #define VBOX_MAIN_NITEMS 5 // number of interface items in vboxMain
 
+// default touch device
+#define DEFAULT_DEVICE_FOR_TOUCH "Touchscr"
+
 /* a string (+ aux data) that maintains a refcount */
 
 typedef struct Refstring {
@@ -90,7 +93,7 @@ typedef struct Background {
 
 #define BG_SOLID 0
 #define BG_PIXMAP 1
-#define BG_PDF 2      // not implemented yet
+#define BG_PDF 2
 
 #define RULING_NONE 0
 #define RULING_LINED 1
@@ -250,13 +253,17 @@ typedef struct UIData {
   struct Layer *cur_layer;
   gboolean saved; // is file saved ?
   struct Brush *cur_brush;  // the brush in use (one of brushes[...])
-  int toolno[NUM_BUTTONS+1];  // the number of the currently selected tool
+  int toolno[NUM_BUTTONS+2];  // the number of the currently selected tool; two more reserved for eraser tip and touch device
   struct Brush brushes[NUM_BUTTONS+1][NUM_STROKE_TOOLS]; // the current pen, eraser, hiliter
   struct Brush default_brushes[NUM_STROKE_TOOLS]; // the default ones
   int linked_brush[NUM_BUTTONS+1]; // whether brushes are linked across buttons
   int cur_mapping; // the current button number for mappings
   gboolean button_switch_mapping; // button clicks switch button 1 mappings
   gboolean use_erasertip;
+  gboolean touch_as_handtool; // always map touch device to hand tool?
+  gboolean pen_disables_touch; // pen proximity should disable touch device?
+  gboolean in_proximity;
+  char *device_for_touch;
   int which_mouse_button; // the mouse button drawing the current path
   int which_unswitch_button; // if button_switch_mapping, the mouse button that switched the mapping
   struct Page default_page;  // the model for the default page
@@ -276,6 +283,9 @@ typedef struct UIData {
   gboolean is_corestroke; // this stroke is painted with core pointer
   gboolean saved_is_corestroke;
   GdkDevice *stroke_device; // who's painting this stroke
+  gboolean ignore_other_devices;
+  gboolean ignore_btn_reported_up; // config setting: ignore button reported up
+  gboolean current_ignore_btn_reported_up;
   int screen_width, screen_height; // initial screen size, for XInput events
   double hand_refpt[2];
   int hand_scrollto_cx, hand_scrollto_cy;
@@ -283,10 +293,13 @@ typedef struct UIData {
   char *filename;
   gchar *default_path; // default path for new notes
   gchar *default_image; // path for previous image
-  gboolean view_continuous, fullscreen, maximize_at_start;
+  gboolean fullscreen, maximize_at_start;
+  int view_continuous; // view mode is continuous ?
   gboolean in_update_page_stuff; // semaphore to avoid scrollbar retroaction
   struct Selection *selection;
   GdkCursor *cursor;
+  GdkPixbuf *pen_cursor_pix, *hiliter_cursor_pix;
+  gboolean pen_cursor; // use pencil cursor (default is a dot in current color)
   gboolean progressive_bg; // update PDF bg's one at a time
   char *mrufile, *configfile; // file names for MRU & config
   char *mru[MRU_SIZE]; // MRU data
@@ -294,12 +307,18 @@ typedef struct UIData {
   gboolean bg_apply_all_pages;
   int window_default_width, window_default_height, scrollbar_step_increment;
   gboolean print_ruling; // print the paper ruling ?
+  gboolean exportpdf_prefer_legacy; // prefer legacy code for export-to-pdf?
+  gboolean new_page_bg_from_pdf; // do new pages get a duplicated PDF/image background?
   int default_unit; // the default unit for paper sizes
   int startuptool; // the default tool at startup
   int zoom_step_increment; // the increment in the zoom dialog box
   double zoom_step_factor; // the multiplicative factor in zoom in/out
   double startup_zoom;
   gboolean autoload_pdf_xoj;
+  gboolean autosave_enabled, autosave_loop_running, autosave_need_catchup;
+  GList *autosave_filename_list;
+  int autosave_delay;
+  gboolean need_autosave;
 #if GLIB_CHECK_VERSION(2,6,0)
   GKeyFile *config_data;
 #endif
@@ -319,6 +338,7 @@ typedef struct UIData {
   GtkPrintSettings *print_settings;
 #endif
   gboolean poppler_force_cairo; // force poppler to use cairo
+  gboolean warned_generate_fontconfig; // for win32 fontconfig cache
 } UIData;
 
 #define BRUSH_LINKED 0
@@ -392,6 +412,9 @@ typedef struct BgPdf {
 // the margin between consecutive pages in continuous view
 #define VIEW_CONTINUOUS_SKIP 20.0
 
+#define VIEW_MODE_ONE_PAGE 0 
+#define VIEW_MODE_CONTINUOUS 1
+#define VIEW_MODE_HORIZONTAL 2
 
 // GLOBAL VARIABLES
 

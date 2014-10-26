@@ -20,6 +20,7 @@
 #define PANGO_ENABLE_BACKEND /* to access PangoFcFont.font_pattern */
 
 #include <gtk/gtk.h>
+#include <glib/gstdio.h>
 #include <libgnomecanvas/libgnomecanvas.h>
 #include <zlib.h>
 #include <string.h>
@@ -30,6 +31,7 @@
 #include <fontconfig/fontconfig.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include <cairo/cairo-pdf.h>
 
 #define NO_MAPPERS
 #define NO_TYPE3
@@ -1318,7 +1320,7 @@ gboolean print_to_pdf(char *filename)
   struct PdfImage *image;
   char *tmpbuf;
   
-  f = fopen(filename, "wb");
+  f = g_fopen(filename, "wb");
   if (f == NULL) return FALSE;
   setlocale(LC_NUMERIC, "C");
   annot = FALSE;
@@ -1341,6 +1343,12 @@ gboolean print_to_pdf(char *filename)
       g_string_free(pdfbuf, TRUE);
       if (xref.data != NULL) g_free(xref.data);
     }
+  }
+
+  if (uses_pdf && !annot) { // couldn't parse the PDF: fall back to cairo?
+    fclose(f);
+    setlocale(LC_NUMERIC, "");
+    return FALSE;
   }
 
   if (!annot) {
@@ -1550,11 +1558,9 @@ gboolean print_to_pdf(char *filename)
   return TRUE;
 }
 
-/*********** Printing via gtk-print **********/
+/*********** Printing via cairo and gtk-print **********/
 
-#if GTK_CHECK_VERSION(2, 10, 0)
-
-// does the same job as update_canvas_bg(), but to a print context
+// does the same job as update_canvas_bg(), but to a cairo context
 
 void print_background(cairo_t *cr, struct Page *pg)
 {
@@ -1618,11 +1624,9 @@ void print_background(cairo_t *cr, struct Page *pg)
   }
 }
 
-void print_job_render_page(GtkPrintOperation *print, GtkPrintContext *context, gint pageno, gpointer user_data)
+void print_page_to_cairo(cairo_t *cr, struct Page *pg, gdouble width, gdouble height, PangoLayout *layout)
 {
-  cairo_t *cr;
-  gdouble width, height, scale;
-  struct Page *pg;
+  gdouble scale;
   guint old_rgba;
   double old_thickness;
   GList *layerlist, *itemlist;
@@ -1631,14 +1635,8 @@ void print_job_render_page(GtkPrintOperation *print, GtkPrintContext *context, g
   int i;
   double *pt;
   PangoFontDescription *font_desc;
-  PangoLayout *layout;
-        
-  pg = (struct Page *)g_list_nth_data(journal.pages, pageno);
-  cr = gtk_print_context_get_cairo_context(context);
-  width = gtk_print_context_get_width(context);
-  height = gtk_print_context_get_height(context);
+
   scale = MIN(width/pg->width, height/pg->height);
-  
   cairo_translate(cr, (width-scale*pg->width)/2, (height-scale*pg->height)/2);
   cairo_scale(cr, scale, scale);
   cairo_set_line_join(cr, CAIRO_LINE_JOIN_ROUND);
@@ -1681,7 +1679,6 @@ void print_job_render_page(GtkPrintOperation *print, GtkPrintContext *context, g
         }
       }
       if (item->type == ITEM_TEXT) {
-        layout = gtk_print_context_create_pango_layout(context);
         font_desc = pango_font_description_from_string(item->font_name);
         if (item->font_size)
           pango_font_description_set_absolute_size(font_desc,
@@ -1691,7 +1688,6 @@ void print_job_render_page(GtkPrintOperation *print, GtkPrintContext *context, g
         pango_layout_set_text(layout, item->text, -1);
         cairo_move_to(cr, item->bbox.left, item->bbox.top);
         pango_cairo_show_layout(cr, layout);
-        g_object_unref(layout);
       }
       if (item->type == ITEM_IMAGE) {
         double scalex = (item->bbox.right-item->bbox.left)/gdk_pixbuf_get_width(item->image);
@@ -1707,4 +1703,48 @@ void print_job_render_page(GtkPrintOperation *print, GtkPrintContext *context, g
   }
 }
 
+#if GTK_CHECK_VERSION(2, 10, 0)
+
+void print_job_render_page(GtkPrintOperation *print, GtkPrintContext *context, gint pageno, gpointer user_data)
+{
+  cairo_t *cr;
+  gdouble width, height;
+  struct Page *pg;
+  PangoLayout *layout;
+        
+  pg = (struct Page *)g_list_nth_data(journal.pages, pageno);
+  cr = gtk_print_context_get_cairo_context(context);
+  width = gtk_print_context_get_width(context);
+  height = gtk_print_context_get_height(context);
+  layout = gtk_print_context_create_pango_layout(context);
+  print_page_to_cairo(cr, pg, width, height, layout);
+  g_object_unref(layout);
+}
+
 #endif
+
+gboolean print_to_pdf_cairo(char *filename)
+{
+  cairo_t *cr;
+  cairo_surface_t *surface;
+  struct Page *pg;
+  GList *list;
+  PangoLayout *layout;
+  cairo_status_t retval;
+ 
+  surface = cairo_pdf_surface_create(filename, ui.default_page.width, ui.default_page.height);
+  for (list = journal.pages; list!=NULL; list = list->next) {
+    pg = (struct Page *)list->data;
+    cairo_pdf_surface_set_size(surface, pg->width, pg->height);
+    cr = cairo_create(surface);
+    layout = pango_cairo_create_layout(cr);
+    print_page_to_cairo(cr, pg, pg->width, pg->height, layout);
+    g_object_unref(layout);
+    cairo_destroy(cr);
+    cairo_surface_show_page(surface);
+  }
+  cairo_surface_finish(surface);
+  retval = cairo_surface_status(surface);
+  cairo_surface_destroy(surface);
+  return (retval == CAIRO_STATUS_SUCCESS);
+}

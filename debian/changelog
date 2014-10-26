@@ -1,3 +1,15 @@
+xournal (1:0.4.8-1) unstable; urgency=medium
+
+  * New upstream release (Closes: #756974, #700586, #659586)
+  * Upgrade to Standards-Version 3.9.6 (no changes)
+  * Added epoch to correct error in version number for last release
+  * New translations included (Closes: #685107)
+  * Patched debian/rules to update autotools files before 
+    building the package.  Thanks to Logan Rosen, ravi and Breno 
+    Leitao (Closes: #735383, #746530)
+
+ -- Carlo Segre <segre@debian.org>  Sun, 26 Oct 2014 13:51:19 -0500
+
 xournal (4.7-1) unstable; urgency=low
 
   * New upstream release (Closes: #690439)

@@ -81,6 +81,10 @@ on_viewContinuous_activate             (GtkMenuItem     *menuitem,
                                         gpointer         user_data);
 
 void
+on_viewHorizontal_activate             (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+void
 on_viewOnePage_activate                (GtkMenuItem     *menuitem,
                                         gpointer         user_data);
 
@@ -425,6 +429,11 @@ on_canvas_leave_notify_event           (GtkWidget       *widget,
                                         gpointer         user_data);
 
 gboolean
+on_canvas_proximity_event              (GtkWidget       *widget,
+                                        GdkEventProximity *event,
+                                        gpointer         user_data);
+
+gboolean
 on_canvas_expose_event                 (GtkWidget       *widget,
                                         GdkEventExpose  *event,
                                         gpointer         user_data);
@@ -454,6 +463,10 @@ on_optionsUseXInput_activate           (GtkMenuItem     *menuitem,
 
 void
 on_vscroll_changed                     (GtkAdjustment   *adjustment,
+                                        gpointer        user_data);
+
+void
+on_hscroll_changed                     (GtkAdjustment   *adjustment,
                                         gpointer        user_data);
 
 void
@@ -659,4 +672,33 @@ on_button2Image_activate               (GtkMenuItem     *menuitem,
 
 void
 on_button3Image_activate               (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+void
+on_optionsPenCursor_activate           (GtkCheckMenuItem *checkmenuitem,
+                                        gpointer         user_data);
+
+void
+on_optionsTouchAsHandTool_activate     (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+void
+on_optionsPenDisablesTouch_activate    (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+void
+on_optionsDesignateTouchscreen_activate
+                                        (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+void
+on_journalNewPageKeepsBG_activate      (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+void
+on_optionsAutosaveXoj_activate         (GtkMenuItem     *menuitem,
+                                        gpointer         user_data);
+
+void
+on_optionsLegacyPDFExport_activate     (GtkMenuItem     *menuitem,
                                         gpointer         user_data);
