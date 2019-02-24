@@ -351,6 +351,17 @@
 		  </child>
 
 		  <child>
+		    <widget class="GtkRadioMenuItem" id="viewHorizontal">
+		      <property name="visible">True</property>
+		      <property name="label" translatable="yes">Horizontal</property>
+		      <property name="use_underline">True</property>
+		      <property name="active">True</property>
+		      <property name="group">viewContinuous</property>
+		      <signal name="toggled" handler="on_viewHorizontal_activate" last_modification_time="Wed, 30 Nov 2005 19:31:48 GMT"/>
+		    </widget>
+		  </child>
+
+		  <child>
 		    <widget class="GtkRadioMenuItem" id="viewOnePage">
 		      <property name="visible">True</property>
 		      <property name="label" translatable="yes">_One Page</property>
@@ -637,6 +648,15 @@
 		      <property name="label" translatable="yes">New Page At _End</property>
 		      <property name="use_underline">True</property>
 		      <signal name="activate" handler="on_journalNewPageEnd_activate" last_modification_time="Wed, 30 Nov 2005 19:50:07 GMT"/>
+		    </widget>
+		  </child>
+
+		  <child>
+		    <widget class="GtkCheckMenuItem" id="journalNewPageKeepsBG">
+		      <property name="visible">True</property>
+		      <property name="label" translatable="yes">New Pages Keep Background</property>
+		      <property name="use_underline">True</property>
+		      <signal name="activate" handler="on_journalNewPageKeepsBG_activate" last_modification_time="Mon, 26 May 2014 19:50:07 GMT"/>
 		    </widget>
 		  </child>
 
@@ -1549,25 +1569,78 @@
 		  </child>
 
 		  <child>
-		    <widget class="GtkCheckMenuItem" id="optionsButtonMappings">
+		    <widget class="GtkMenuItem" id="pen_and_touch">
 		      <property name="visible">True</property>
-		      <property name="label" translatable="yes">_Eraser Tip</property>
+		      <property name="label" translatable="yes">_Pen and Touch</property>
 		      <property name="use_underline">True</property>
-		      <property name="active">False</property>
-		      <signal name="activate" handler="on_optionsButtonMappings_activate" last_modification_time="Thu, 26 Jan 2006 03:45:32 GMT"/>
-		    </widget>
-		  </child>
 
-		  <child>
-		    <widget class="GtkCheckMenuItem" id="optionsPressureSensitive">
-		      <property name="visible">True</property>
-		      <property name="label" translatable="yes">_Pressure sensitivity</property>
-		      <property name="use_underline">True</property>
-		      <property name="active">False</property>
-		      <signal name="activate" handler="on_optionsPressureSensitive_activate" last_modification_time="Fri, 21 Mar 2008 19:00:32 GMT"/>
-		    </widget>
-		  </child>
+		      <child>
+			<widget class="GtkMenu" id="pen_and_touch_menu">
 
+			  <child>
+			    <widget class="GtkCheckMenuItem" id="optionsButtonMappings">
+			      <property name="visible">True</property>
+		 	      <property name="label" translatable="yes">_Eraser Tip</property>
+		 	      <property name="use_underline">True</property>
+			      <property name="active">False</property>
+			      <signal name="activate" handler="on_optionsButtonMappings_activate" last_modification_time="Thu, 26 Jan 2006 03:45:32 GMT"/>
+			    </widget>
+			  </child>
+
+			  <child>
+			    <widget class="GtkCheckMenuItem" id="optionsPressureSensitive">
+			      <property name="visible">True</property>
+			      <property name="label" translatable="yes">_Pressure sensitivity</property>
+			      <property name="use_underline">True</property>
+			      <property name="active">False</property>
+			      <signal name="activate" handler="on_optionsPressureSensitive_activate" last_modification_time="Fri, 21 Mar 2008 19:00:32 GMT"/>
+			    </widget>
+			  </child>
+
+			  <child>
+			    <widget class="GtkCheckMenuItem" id="optionsButtonSwitchMapping">
+			      <property name="visible">True</property>
+			      <property name="label" translatable="yes">Buttons Switch Mappings</property>
+			      <property name="use_underline">True</property>
+			      <property name="active">False</property>
+			      <signal name="toggled" handler="on_optionsButtonsSwitchMappings_activate" last_modification_time="Sun, 20 Sep 2009 22:54:39 GMT"/>
+			    </widget>
+			  </child>
+
+			  <child>
+			    <widget class="GtkCheckMenuItem" id="optionsTouchAsHandTool">
+			      <property name="visible">True</property>
+			      <property name="label" translatable="yes">_Touchscreen as Hand Tool</property>
+			      <property name="use_underline">True</property>
+			      <property name="active">False</property>
+			      <signal name="activate" handler="on_optionsTouchAsHandTool_activate" last_modification_time="Thu, 23 Mar 2014 03:45:32 GMT"/>
+			    </widget>
+			  </child>
+
+			  <child>
+			    <widget class="GtkCheckMenuItem" id="optionsPenDisablesTouch">
+			      <property name="visible">True</property>
+			      <property name="label" translatable="yes">Pen disables Touch</property>
+			      <property name="use_underline">True</property>
+			      <property name="active">False</property>
+			      <signal name="activate" handler="on_optionsPenDisablesTouch_activate" last_modification_time="Sat, 24 May 2014 22:16:32 GMT"/>
+			    </widget>
+			  </child>
+
+			  <child>
+			    <widget class="GtkMenuItem" id="optionsDesignateTouchscreen">
+			      <property name="visible">True</property>
+			      <property name="label" translatable="yes">Designate as Touchscreen...</property>
+			      <property name="use_underline">True</property>
+			      <property name="active">False</property>
+			      <signal name="activate" handler="on_optionsDesignateTouchscreen_activate" last_modification_time="Sat, 24 May 2014 22:16:32 GMT"/>
+			    </widget>
+			  </child>
+
+		         </widget>
+			</child>
+		       </widget>
+		     </child>
 		  <child>
 		    <widget class="GtkMenuItem" id="button2_mapping">
 		      <property name="visible">True</property>
@@ -1863,16 +1936,6 @@
 		  </child>
 
 		  <child>
-		    <widget class="GtkCheckMenuItem" id="optionsButtonSwitchMapping">
-		      <property name="visible">True</property>
-		      <property name="label" translatable="yes">Buttons Switch Mappings</property>
-		      <property name="use_underline">True</property>
-		      <property name="active">False</property>
-		      <signal name="toggled" handler="on_optionsButtonsSwitchMappings_activate" last_modification_time="Sun, 20 Sep 2009 22:54:39 GMT"/>
-		    </widget>
-		  </child>
-
-		  <child>
 		    <widget class="GtkSeparatorMenuItem" id="separator18">
 		      <property name="visible">True</property>
 		    </widget>
@@ -1881,7 +1944,7 @@
 		  <child>
 		    <widget class="GtkCheckMenuItem" id="optionsProgressiveBG">
 		      <property name="visible">True</property>
-		      <property name="label" translatable="yes">_Progressive Backgrounds</property>
+		      <property name="label" translatable="yes">Progressive _Backgrounds</property>
 		      <property name="use_underline">True</property>
 		      <property name="active">False</property>
 		      <signal name="activate" handler="on_optionsProgressiveBG_activate" last_modification_time="Thu, 26 Jan 2006 20:15:09 GMT"/>
@@ -1899,12 +1962,32 @@
 		  </child>
 
 		  <child>
+		    <widget class="GtkCheckMenuItem" id="optionsLegacyPDFExport">
+		      <property name="visible">True</property>
+		      <property name="label" translatable="yes">Legacy PDF Export</property>
+		      <property name="use_underline">True</property>
+		      <property name="active">False</property>
+		      <signal name="activate" handler="on_optionsLegacyPDFExport_activate" last_modification_time="Sat, 28 Jun 2014 20:42:27 GMT"/>
+		    </widget>
+		  </child>
+
+		  <child>
 		    <widget class="GtkCheckMenuItem" id="optionsAutoloadPdfXoj">
 		      <property name="visible">True</property>
 		      <property name="label" translatable="yes">Autoload pdf.xoj</property>
 		      <property name="use_underline">True</property>
 		      <property name="active">False</property>
 		      <signal name="activate" handler="on_optionsAutoloadPdfXoj_activate" last_modification_time="Sat, 25 Nov 2006 03:42:27 GMT"/>
+		    </widget>
+		  </child>
+
+		  <child>
+		    <widget class="GtkCheckMenuItem" id="optionsAutosaveXoj">
+		      <property name="visible">True</property>
+		      <property name="label" translatable="yes">Auto-Save Files</property>
+		      <property name="use_underline">True</property>
+		      <property name="active">False</property>
+		      <signal name="activate" handler="on_optionsAutosaveXoj_activate" last_modification_time="Fri, 27 Jun 2014 03:42:27 GMT"/>
 		    </widget>
 		  </child>
 
@@ -1925,6 +2008,16 @@
 		      <property name="use_underline">True</property>
 		      <property name="active">False</property>
 		      <signal name="toggled" handler="on_optionsShortenMenus_activate" last_modification_time="Wed, 07 Dec 2005 22:54:39 GMT"/>
+		    </widget>
+		  </child>
+
+		  <child>
+		    <widget class="GtkCheckMenuItem" id="optionsPenCursor">
+		      <property name="visible">True</property>
+		      <property name="label" translatable="yes">Pencil Cursor</property>
+		      <property name="use_underline">True</property>
+		      <property name="active">False</property>
+		      <signal name="toggled" handler="on_optionsPenCursor_activate" last_modification_time="Wed, 07 Nov 2012 22:54:39 GMT"/>
 		    </widget>
 		  </child>
 
