@@ -7,7 +7,6 @@
 #include <gtk/gtk.h>
 #include <libgnomecanvas/libgnomecanvas.h>
 #include <gdk/gdkkeysyms.h>
-#include <X11/Xlib.h>
 
 #include "xournal.h"
 #include "xo-interface.h"
@@ -1660,9 +1659,12 @@ gboolean ok_to_close(void)
 
   if (ui.saved) return TRUE;
   dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
-    GTK_MESSAGE_WARNING, GTK_BUTTONS_YES_NO, _("Save changes to '%s'?"),
+    GTK_MESSAGE_WARNING, GTK_BUTTONS_NONE, _("Save changes to '%s'?"),
     (ui.filename!=NULL) ? ui.filename:_("Untitled"));
+  gtk_dialog_add_button(GTK_DIALOG (dialog), GTK_STOCK_DISCARD, GTK_RESPONSE_NO);
+  gtk_dialog_add_button(GTK_DIALOG (dialog), GTK_STOCK_SAVE, GTK_RESPONSE_YES);
   gtk_dialog_add_button(GTK_DIALOG (dialog), GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
+  gtk_dialog_set_default_response(GTK_DIALOG (dialog), GTK_RESPONSE_YES);
   response = gtk_dialog_run(GTK_DIALOG (dialog));
   gtk_widget_destroy(dialog);
   if (response == GTK_RESPONSE_CANCEL || response == GTK_RESPONSE_DELETE_EVENT) 
@@ -2040,6 +2042,11 @@ void hide_unimplemented(void)
   if (gtk_check_version(2, 10, 0)) {
     gtk_widget_hide(GET_COMPONENT("filePrint"));
   }  
+  
+  /* screenshot feature doesn't work yet in Win32 */
+#ifdef WIN32
+  gtk_widget_hide(GET_COMPONENT("journalScreenshot"));
+#endif
 }  
 
 // toggle fullscreen mode
@@ -2052,9 +2059,23 @@ void do_fullscreen(gboolean active)
   gtk_toggle_tool_button_set_active(
     GTK_TOGGLE_TOOL_BUTTON(GET_COMPONENT("buttonFullscreen")), ui.fullscreen);
 
-  if (ui.fullscreen) gtk_window_fullscreen(GTK_WINDOW(winMain));
-  else gtk_window_unfullscreen(GTK_WINDOW(winMain));
-  
+  if (ui.fullscreen) {
+#ifdef WIN32
+    gtk_window_get_size(GTK_WINDOW(winMain), &ui.pre_fullscreen_width, &ui.pre_fullscreen_height);
+    gtk_widget_set_size_request(GTK_WIDGET(winMain), gdk_screen_width(),
+                                                     gdk_screen_height());
+#endif
+    gtk_window_fullscreen(GTK_WINDOW(winMain));
+  }
+  else {
+#ifdef WIN32
+    gtk_widget_set_size_request(GTK_WIDGET(winMain), -1, -1);
+    gtk_window_resize(GTK_WINDOW(winMain), ui.pre_fullscreen_width,
+                                           ui.pre_fullscreen_height);
+#endif
+    gtk_window_unfullscreen(GTK_WINDOW(winMain));
+  }
+
   update_vbox_order(ui.vertical_order[ui.fullscreen?1:0]);
 }
 
@@ -2175,4 +2196,94 @@ void install_focus_hooks(GtkWidget *w, gpointer data)
   }
   if(GTK_IS_CONTAINER(w))
     gtk_container_forall(GTK_CONTAINER(w), install_focus_hooks, data);
+}
+
+// wrapper for missing poppler functions (defunct poppler-gdk api)
+
+static void
+wrapper_copy_cairo_surface_to_pixbuf (cairo_surface_t *surface,
+			      GdkPixbuf       *pixbuf)
+{
+  int cairo_width, cairo_height, cairo_rowstride;
+  unsigned char *pixbuf_data, *dst, *cairo_data;
+  int pixbuf_rowstride, pixbuf_n_channels;
+  unsigned int *src;
+  int x, y;
+
+  cairo_width = cairo_image_surface_get_width (surface);
+  cairo_height = cairo_image_surface_get_height (surface);
+  cairo_rowstride = cairo_image_surface_get_stride (surface);
+  cairo_data = cairo_image_surface_get_data (surface);
+
+  pixbuf_data = gdk_pixbuf_get_pixels (pixbuf);
+  pixbuf_rowstride = gdk_pixbuf_get_rowstride (pixbuf);
+  pixbuf_n_channels = gdk_pixbuf_get_n_channels (pixbuf);
+
+  if (cairo_width > gdk_pixbuf_get_width (pixbuf))
+    cairo_width = gdk_pixbuf_get_width (pixbuf);
+  if (cairo_height > gdk_pixbuf_get_height (pixbuf))
+    cairo_height = gdk_pixbuf_get_height (pixbuf);
+  for (y = 0; y < cairo_height; y++)
+    {
+      src = (unsigned int *) (cairo_data + y * cairo_rowstride);
+      dst = pixbuf_data + y * pixbuf_rowstride;
+      for (x = 0; x < cairo_width; x++) 
+	{
+	  dst[0] = (*src >> 16) & 0xff;
+	  dst[1] = (*src >> 8) & 0xff; 
+	  dst[2] = (*src >> 0) & 0xff;
+	  if (pixbuf_n_channels == 4)
+	      dst[3] = (*src >> 24) & 0xff;
+	  dst += pixbuf_n_channels;
+	  src++;
+	}
+    }
+}	
+
+void
+wrapper_poppler_page_render_to_pixbuf (PopplerPage *page,
+			       int src_x, int src_y,
+			       int src_width, int src_height,
+			       double scale,
+			       int rotation,
+			       GdkPixbuf *pixbuf)
+{
+  cairo_t *cr;
+  cairo_surface_t *surface;
+
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32,
+					src_width, src_height);
+  cr = cairo_create (surface);
+  cairo_save (cr);
+  switch (rotation) {
+  case 90:
+	  cairo_translate (cr, src_x + src_width, -src_y);
+	  break;
+  case 180:
+	  cairo_translate (cr, src_x + src_width, src_y + src_height);
+	  break;
+  case 270:
+	  cairo_translate (cr, -src_x, src_y + src_height);
+	  break;
+  default:
+	  cairo_translate (cr, -src_x, -src_y);
+  }
+
+  if (scale != 1.0)
+	  cairo_scale (cr, scale, scale);
+
+  if (rotation != 0)
+	  cairo_rotate (cr, rotation * G_PI / 180.0);
+
+  poppler_page_render (page, cr);
+  cairo_restore (cr);
+
+  cairo_set_operator (cr, CAIRO_OPERATOR_DEST_OVER);
+  cairo_set_source_rgb (cr, 1., 1., 1.);
+  cairo_paint (cr);
+
+  cairo_destroy (cr);
+
+  wrapper_copy_cairo_surface_to_pixbuf (surface, pixbuf);
+  cairo_surface_destroy (surface);
 }
