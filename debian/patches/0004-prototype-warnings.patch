@@ -1,0 +1,56 @@
+From: "Barak A. Pearlmutter" <bap@debian.org>
+Date: Sun, 24 Feb 2019 22:28:05 +0000
+Subject: prototype warnings
+
+---
+ src/ttsubset/sft.c  | 6 ++++++
+ src/ttsubset/ttcr.c | 3 +++
+ src/xo-image.c      | 2 ++
+ 3 files changed, 11 insertions(+)
+
+diff --git a/src/ttsubset/sft.c b/src/ttsubset/sft.c
+index 619753f..95cae2d 100644
+--- a/src/ttsubset/sft.c
++++ b/src/ttsubset/sft.c
+@@ -43,8 +43,14 @@
+  * @version 1.0
+  */
+ 
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
+ #include <assert.h>
+ #include <stdlib.h>
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
+ #include <string.h>
+ #include <fcntl.h>
+ #include "sft.h"
+diff --git a/src/ttsubset/ttcr.c b/src/ttsubset/ttcr.c
+index eecfcad..68f5360 100644
+--- a/src/ttsubset/ttcr.c
++++ b/src/ttsubset/ttcr.c
+@@ -44,6 +44,9 @@
+  *
+  */
+ 
++#ifdef HAVE_CONFIG_H
++#include <config.h>
++#endif
+ #include <sys/types.h>
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>
+diff --git a/src/xo-image.c b/src/xo-image.c
+index c16f8f4..5624a46 100644
+--- a/src/xo-image.c
++++ b/src/xo-image.c
+@@ -25,6 +25,8 @@
+ #include "xo-support.h"
+ #include "xo-image.h"
+ #include "xo-misc.h"
++#include "xo-selection.h"
++#include "xo-paint.h"
+ 
+ // create pixbuf from buffer, or return NULL on failure
+ GdkPixbuf *pixbuf_from_buffer(const gchar *buf, gsize buflen)

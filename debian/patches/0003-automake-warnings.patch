@@ -1,0 +1,56 @@
+From: "Barak A. Pearlmutter" <bap@debian.org>
+Date: Sun, 24 Feb 2019 16:54:30 +0000
+Subject: automake warnings
+
+---
+ src/Makefile.am          | 10 +++++-----
+ src/ttsubset/Makefile.am |  4 ++--
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 6f7fdd7..9e7de59 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -6,10 +6,10 @@ else
+   SUBDIRS = ttsubset
+ endif
+ 
+-INCLUDES = \
++AM_CPPFLAGS = \
+ 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
+ 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
+-	@PACKAGE_CFLAGS@
++	$(PACKAGE_CFLAGS)
+ 
+ bin_PROGRAMS = xournal
+ 
+@@ -29,12 +29,12 @@ xournal_SOURCES = \
+ 
+ if WIN32
+   xournal_LDFLAGS = -mwindows
+-  xournal_LDADD = win32/xournal.res ttsubset/libttsubset.a @PACKAGE_LIBS@ $(INTLLIBS) -lz
++  xournal_LDADD = win32/xournal.res ttsubset/libttsubset.a $(PACKAGE_LIBS) $(INTLLIBS) -lz
+ else
+ if LINUX
+-  xournal_LDADD = ttsubset/libttsubset.a @PACKAGE_LIBS@ $(INTLLIBS) -lX11 -lz -lm
++  xournal_LDADD = ttsubset/libttsubset.a $(PACKAGE_LIBS) $(INTLLIBS) -lX11 -lz -lm
+ else
+-  xournal_LDADD = ttsubset/libttsubset.a @PACKAGE_LIBS@ $(INTLLIBS) -lz -lm
++  xournal_LDADD = ttsubset/libttsubset.a $(PACKAGE_LIBS) $(INTLLIBS) -lz -lm
+ endif
+ endif
+ 
+diff --git a/src/ttsubset/Makefile.am b/src/ttsubset/Makefile.am
+index dabfe8e..a17d1a4 100644
+--- a/src/ttsubset/Makefile.am
++++ b/src/ttsubset/Makefile.am
+@@ -1,7 +1,7 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+-INCLUDES = \
+-	@PACKAGE_CFLAGS@ -DNO_MAPPERS -DNO_TYPE3 -DNO_TYPE42
++AM_CPPFLAGS = \
++	$(PACKAGE_CFLAGS) -DNO_MAPPERS -DNO_TYPE3 -DNO_TYPE42
+ 
+ noinst_LIBRARIES = libttsubset.a
+ 

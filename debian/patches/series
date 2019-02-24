@@ -1,1 +1,5 @@
 0001-desktop.patch
+0002-cast-warnings.patch
+0003-automake-warnings.patch
+0004-prototype-warnings.patch
+0005-format-warnings.patch
