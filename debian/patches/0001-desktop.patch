@@ -1,0 +1,34 @@
+From: "Barak A. Pearlmutter" <bap@debian.org>
+Date: Sun, 24 Feb 2019 10:02:40 +0000
+Subject: desktop
+
+---
+ x-xoj.desktop   | 1 -
+ xournal.desktop | 2 +-
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/x-xoj.desktop b/x-xoj.desktop
+index 2288565..49b8da6 100644
+--- a/x-xoj.desktop
++++ b/x-xoj.desktop
+@@ -1,5 +1,4 @@
+ [Desktop Entry]
+-Encoding=UTF-8
+ Type=MimeType
+ MimeType=application/x-xoj
+ Icon=xoj
+diff --git a/xournal.desktop b/xournal.desktop
+index b593707..9d68c9b 100644
+--- a/xournal.desktop
++++ b/xournal.desktop
+@@ -1,9 +1,9 @@
+ [Desktop Entry]
+-Encoding=UTF-8
+ Type=Application
+ 
+ Name=Xournal
+ Comment=Take handwritten notes
++Keywords=tablet;annotation;pen;handwritten;notes;overlay;drawing
+ Name[fr]=Xournal
+ Comment[fr]=Prise de notes manuscrites
+ Name[ca]=Xournal

@@ -4,8 +4,8 @@ xournal (1:0.4.8-1) unstable; urgency=medium
   * Upgrade to Standards-Version 3.9.6 (no changes)
   * Added epoch to correct error in version number for last release
   * New translations included (Closes: #685107)
-  * Patched debian/rules to update autotools files before 
-    building the package.  Thanks to Logan Rosen, ravi and Breno 
+  * Patched debian/rules to update autotools files before
+    building the package.  Thanks to Logan Rosen, ravi and Breno
     Leitao (Closes: #735383, #746530)
 
  -- Carlo Segre <segre@debian.org>  Sun, 26 Oct 2014 13:51:19 -0500
@@ -46,12 +46,11 @@ xournal (0.4.5-1) unstable; urgency=low
     - Change to gtk+ (>= 2.10) eliminating dependencies on libgnomeprint
       and libgnomeprintui (Closes: #542571, #539128)
     - Remove dependency on poppler-utils and replace with poppler-glib which
-      eliminates the problem with xpdf-utils and poppler-utils 
+      eliminates the problem with xpdf-utils and poppler-utils
       (Closes: #499037)
     - New option available to autoload *.pdf.xoj files (Closes: #410911)
   * Upgrade to Standards-Version 3.8.3 (no changes)
   * Change to section "x11"
-  
 
  -- Carlo Segre <segre@debian.org>  Sat, 03 Oct 2009 00:28:16 -0500
 
@@ -61,10 +60,10 @@ xournal (0.4.2.1-1) unstable; urgency=low
   * Changed dependency from gs to ghostscript-x.
   * Converted to quilt for source modifications.
   * Restored UTF support in desktop and mime files.
-  * Modify clean rule to delete leftover configuration files which 
+  * Modify clean rule to delete leftover configuration files which
     were making the diff.gz file significantly larger.
-  * Added patch to src/xo-file.c which fixes the problem that PDF files 
-    cannot be opened for annotation with libgtk2.0-0 version 2.14.7 on 
+  * Added patch to src/xo-file.c which fixes the problem that PDF files
+    cannot be opened for annotation with libgtk2.0-0 version 2.14.7 on
     i386 (Closes: #522541).
   * Install debian/watch from Ubuntu package (Closes: #501323).
   * Raised debhelper compatibility  level to 7.

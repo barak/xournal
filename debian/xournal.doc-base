@@ -1,0 +1,12 @@
+Document: xournal-users-manual
+Title: Xournal User's Manual
+Author: Denis Auroux
+Abstract: Xournal is an application for notetaking, sketching, and
+ keeping a journal using a stylus. It is similar to Microsoft Windows
+ Journal or to other alternatives such as Jarnal and Gournal. Notes
+ can be overlaid on a PDF file.
+Section: Graphics
+
+Format: HTML
+Index: /usr/share/doc/xournal/manual.html
+Files: /usr/share/doc/xournal/manual.html /usr/share/doc/xournal/screenshot.png /usr/share/doc/xournal/pixmaps/*.png

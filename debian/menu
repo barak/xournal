@@ -1,2 +1,0 @@
-?package(xournal):needs="X11" section="Applications/Editors"\
-  title="xournal" command="/usr/bin/xournal"
