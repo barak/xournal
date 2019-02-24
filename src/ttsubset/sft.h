@@ -1,5 +1,3 @@
-/* modified from sft.h in libgnomeprint */
-
 /*
  * Copyright © 2002, 2003 Sun Microsystems, Inc.
  * All rights reserved.
@@ -36,7 +34,6 @@
  */
 
 /* $Id: sft.h,v 1.6 2005/01/04 20:10:46 jody Exp $ */
-
 /* @(#)sft.h 1.17 03/01/08 SMI */
 
 /*
@@ -44,6 +41,20 @@
  * @brief Sun Font Tools
  * @author Alexander Gelfenbain <adg@sun.com>
  * @version 1.0
+ */
+
+/*
+ *        If NO_MAPPERS is defined, MapChar() and MapString() and consequently GetTTSimpleCharMetrics()
+ *        don't get compiled in. This is done to avoid including a large chunk of code (TranslateXY() from
+ *        xlat.c in the projects that don't require it.
+ *
+ *        If NO_TYPE3 is defined CreateT3FromTTGlyphs() does not get compiled in.
+ *        If NO_TYPE42 is defined Type42-related code is excluded
+ *        If NO_TTCR is defined TrueType creation related code is excluded\
+ *        If NO_LIST is defined list.h and piblic functions that use it don't get compiled
+ *        If USE_GSUB is *not* defined Philipp's GSUB code does not get included
+ *
+ *        When STSF is defined several data types are defined elsewhere
  */
 
 /*
@@ -60,18 +71,84 @@
  *        C3 - CRC-32 of the array of encoding numbers used to generate the subset
  *
  */
- 
 
 #ifndef __SUBFONT_H
 #define __SUBFONT_H
 
 #include <sys/types.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 #include <stdio.h>
+#ifndef NO_LIST
+#include "list.h"
+#endif
 
+#ifdef STSF
+#include <sttypes.h>
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#if 0	/* Use glib's G_BYTE_ORDER == G_BIG_ENDIAN instead */
+#ifdef __sparc
+#ifndef G_BIG_ENDIAN
+#define G_BIG_ENDIAN
+#endif
+#endif
+
+#if defined(__powerpc__) || defined(POWERPC)
+#ifndef G_BIG_ENDIAN
+#define G_BIG_ENDIAN
+#endif
+#endif
+
+#ifdef __i386
+#ifndef G_LITTLE_ENDIAN
+#define G_LITTLE_ENDIAN
+#endif
+#endif
+
+#ifdef __mips
+#ifndef G_BIG_ENDIAN
+#define G_BIG_ENDIAN
+#endif
+#endif
+
+#ifdef __BIG_ENDIAN__
+#define G_BIG_ENDIAN
+#endif
+
+#ifdef __LITTLE_ENDIAN__
+#define G_LITTLE_ENDIAN
+#endif
+
+#if !defined(G_BIG_ENDIAN) && !defined(G_LITTLE_ENDIAN)
+#error "Either G_BIG_ENDIAN or G_LITTLE_ENDIAN should be defined."
+#endif
+
+#if defined(G_BIG_ENDIAN) && defined(G_LITTLE_ENDIAN)
+#error "This is bizarre"
+#endif
+#endif
+
+#if 0  /* These should be defined in the makefile */
+#define DEBUG      /* Generate debugging output */
+#define DEBUG2     /* More detailed debugging output */
+#define DEBUG3     /* Dump of TrueType outlines */
+#endif
+
+    
+
+
+/*@{*/
 #define false 0               /**< standard false value */
 #define true  1               /**< standard true value */
+/*@}*/
 
+#ifndef STSF
 /* glib already deals with different compilers */
 #include <glibconfig.h>
 
@@ -84,6 +161,7 @@
         guint16 s;
         guint16 d;
     } uint16pair;
+#endif
 
 /** Return value of OpenTTFont() and CreateT3FromTTGlyphs() */
     enum SFErrCodes {
@@ -148,6 +226,7 @@
         OVERLAP_COMPOUND          = 1<<10
     };
 
+#ifndef NO_TTCR
 /** Flags for TrueType generation */
     enum TTCreationFlags {
         TTCF_AutoName = 1,                  /**< Automatically generate a compact 'name' table.
@@ -163,6 +242,7 @@
         TTCF_IncludeOS2 = 2                 /** If this flag is set OS/2 table from the original font will be
                                                 copied to the subset */
     };
+#endif
 
     /** Structure used by GetTTGlyphMetrics() */
     /*- In horisontal writing mode right sidebearing is calculated using this formula
@@ -208,6 +288,7 @@
     } GlyphData;
 
 
+#ifndef STSF
     /* STSF defines NameRecord and FUnitBBox structures in its own include file sttypes.h */
 
     typedef struct {
@@ -226,6 +307,8 @@
         guint16 slen;                        /**< String length in bytes                                 */
         guint8  *sptr;                        /**< Pointer to string data (not zero-terminated!)          */
     } NameRecord;
+#endif
+
 
 
 /** Return value of GetTTGlobalFontInfo() */
@@ -356,6 +439,25 @@ FUnitBBox *GetTTGlyphBoundingBoxes(TrueTypeFont *ttf);
  */
     GlyphData *GetTTRawGlyphData(TrueTypeFont *ttf, guint32 glyphID);
 
+#ifndef NO_LIST
+/*
+ * For a specified glyph adds all component glyphs IDs to the list and
+ * return their number. If the glyph is a single glyph it has one component
+ * glyph (which is added to the list) and the function returns 1.
+ * For a composite glyphs it returns the number of component glyphs
+ * and adds all of them to the list.
+ *
+ * @param ttf         pointer to the TrueTypeFont structure
+ * @param glyphID     Glyph ID
+ * @param glyphlist   list of glyphs
+ *
+ * @return            number of component glyphs
+ * @ingroup sft
+ *
+ */
+    int GetTTGlyphComponents(TrueTypeFont *ttf, guint32 glyphID, list glyphlist);
+#endif
+
 /*
  * Extracts all Name Records from the font and stores them in an allocated
  * array of NameRecord structs
@@ -430,6 +532,19 @@ FUnitBBox *GetTTGlyphBoundingBoxes(TrueTypeFont *ttf);
                               int            nNameRecs,
                               NameRecord    *nr,
                               guint32        flags);
+
+// the same, but to memory (output to out_buf, out_len)
+    int  CreateTTFromTTGlyphs_tomemory
+                             (TrueTypeFont  *ttf,
+                              guint8        **out_buf,
+                              guint32       *out_len,
+                              guint16        *glyphArray,
+                              guint8          *encoding,
+                              int            nGlyphs,
+                              int            nNameRecs,
+                              NameRecord    *nr,
+                              guint32        flags);
+
 #endif
 
 #ifndef NO_TYPE42
@@ -670,9 +785,10 @@ struct _TrueTypeFont {
 #ifdef USE_GSUB
     void   *pGSubstitution;                       /* info provided by GSUB for UseGSUB()                                */
 #endif
-#if 0
-    GnomePrintBuffer gp_buf;
-#endif
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __SUBFONT_H */

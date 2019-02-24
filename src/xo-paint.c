@@ -1077,11 +1077,16 @@ void clipboard_paste(void)
   
   gtk_selection_data_free(sel_data);
   update_copy_paste_enabled();
+  update_color_menu();
+  update_thickness_buttons();
+  update_color_buttons();
+  update_font_button();  
+  update_cursor(); // FIXME: can't know if pointer is within selection!
 }
 
 // modify the color or thickness of pen strokes in a selection
 
-void recolor_selection(int color)
+void recolor_selection(int color_no, guint color_rgba)
 {
   GList *itemlist;
   struct Item *item;
@@ -1103,8 +1108,8 @@ void recolor_selection(int color)
     g_memmove(brush, &(item->brush), sizeof(struct Brush));
     undo->auxlist = g_list_append(undo->auxlist, brush);
     // repaint the stroke
-    item->brush.color_no = color;
-    item->brush.color_rgba = predef_colors_rgba[color];
+    item->brush.color_no = color_no;
+    item->brush.color_rgba = color_rgba | 0xff; // no alpha
     if (item->canvas_item!=NULL) {
       if (!item->brush.variable_width)
         gnome_canvas_item_set(item->canvas_item, 
@@ -1206,8 +1211,9 @@ void start_text(GdkEvent *event, struct Item *item)
   GnomeCanvasItem *canvas_item;
   PangoFontDescription *font_desc;
   GdkColor color;
-  
+
   get_pointer_coords(event, pt);
+
   ui.cur_item_type = ITEM_TEXT;
 
   if (item==NULL) {
@@ -1254,13 +1260,13 @@ void start_text(GdkEvent *event, struct Item *item)
   item->canvas_item = canvas_item;
 
   gtk_widget_show(item->widget);
-  gtk_widget_grab_focus(item->widget);
   ui.resize_signal_handler = 
     g_signal_connect((gpointer) winMain, "check_resize",
        G_CALLBACK(resize_textview), NULL);
   update_font_button();
   gtk_widget_set_sensitive(GET_COMPONENT("editPaste"), FALSE);
   gtk_widget_set_sensitive(GET_COMPONENT("buttonPaste"), FALSE);
+  gtk_widget_grab_focus(item->widget); 
 }
 
 void end_text(void)
@@ -1272,7 +1278,7 @@ void end_text(void)
   GnomeCanvasItem *tmpitem;
 
   if (ui.cur_item_type!=ITEM_TEXT) return; // nothing for us to do!
-  
+
   // finalize the text that's been edited... 
   buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(ui.cur_item->widget));
   gtk_text_buffer_get_bounds(buffer, &start, &end);
@@ -1405,7 +1411,6 @@ void process_font_sel(gchar *str)
     else *p=0;
   }
   else size=0.;
-  reset_focus();
   g_free(ui.font_name);
   ui.font_name = str;  
   if (size>0.) ui.font_size = size;
