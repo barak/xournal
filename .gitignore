@@ -1,0 +1,13 @@
+*.a
+*.o
+/ar-lib
+/autom4te.cache/
+/compile
+/config.h
+/config.log
+/config.status
+/po/Makefile.in
+/po/POTFILES
+/src/xournal
+/stamp-h1
+Makefile
