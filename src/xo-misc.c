@@ -33,6 +33,7 @@
 #include "xo-paint.h"
 #include "xo-shapes.h"
 #include "xo-image.h"
+#include "xo-selection.h"
 
 // some global constants
 
@@ -82,7 +83,7 @@ gchar *candidate_save_filename(void)
   curtime = time(NULL);
   strftime(stime, 30, "%Y-%m-%d-Note-%H-%M.xoj", localtime(&curtime));
   if (ui.default_path!=NULL) 
-    return g_strdup_printf("%s/%s", ui.default_path, stime);
+    return g_strdup_printf("%s%c%s", ui.default_path, G_DIR_SEPARATOR, stime);
   else return g_strdup(stime);
 }
 
@@ -455,7 +456,7 @@ void refstring_unref(struct Refstring *rs)
 
 int finite_sized(double x) // detect unrealistic coordinate values
 {
-  return (finite(x) && x<1E6 && x>-1E6);
+  return (finite(x) && x<1E8 && x>-1E8);
 }
 
 
@@ -561,8 +562,9 @@ double get_pressure_multiplier(GdkEvent *event)
 
   rawpressure = axes[2]/(device->axes[2].max - device->axes[2].min);
   if (!finite_sized(rawpressure)) return 1.0;
-  if (rawpressure <= 0. || rawpressure >= 1.0) return 1.0;
-  
+
+  if (rawpressure <= 0.) rawpressure = 0.;
+  if (rawpressure >= 1.0) rawpressure = 1.0;
   return ((1-rawpressure)*ui.width_minimum_multiplier + rawpressure*ui.width_maximum_multiplier);
 }
 
@@ -572,6 +574,9 @@ void emergency_enable_xinput(GdkInputMode mode)
   GList *dev_list;
   GdkDevice *dev;
 
+#ifdef INPUT_DEBUG
+  printf("DEBUG: Emergency xinput enable/disable: %d\n", mode);
+#endif
   gdk_flush();
   gdk_error_trap_push();
   for (dev_list = gdk_devices_list(); dev_list != NULL; dev_list = dev_list->next) {
@@ -1896,7 +1901,7 @@ gboolean ok_to_close(void)
   gtk_dialog_add_button(GTK_DIALOG (dialog), GTK_STOCK_SAVE, GTK_RESPONSE_YES);
   gtk_dialog_add_button(GTK_DIALOG (dialog), GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
   gtk_dialog_set_default_response(GTK_DIALOG (dialog), GTK_RESPONSE_YES);
-  response = gtk_dialog_run(GTK_DIALOG (dialog));
+  response = wrapper_gtk_dialog_run(GTK_DIALOG (dialog));
   gtk_widget_destroy(dialog);
   if (response == GTK_RESPONSE_CANCEL || response == GTK_RESPONSE_DELETE_EVENT) 
     return FALSE; // aborted
@@ -2258,6 +2263,13 @@ void add_scroll_bindings(void)
   gtk_binding_entry_add_signal(binding_set, GDK_KP_Right, 0,
     "scroll_child", 2, GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_STEP_FORWARD, 
     G_TYPE_BOOLEAN, TRUE);  
+  // make space and shift-space scroll down/up by a page
+  gtk_binding_entry_add_signal(binding_set, GDK_space, 0,
+    "scroll_child", 2, GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_DOWN, 
+    G_TYPE_BOOLEAN, TRUE);  
+  gtk_binding_entry_add_signal(binding_set, GDK_space, GDK_SHIFT_MASK,
+    "scroll_child", 2, GTK_TYPE_SCROLL_TYPE, GTK_SCROLL_PAGE_UP, 
+    G_TYPE_BOOLEAN, TRUE);  
 }
 
 gboolean is_event_within_textview(GdkEventButton *event)
@@ -2288,7 +2300,7 @@ void hide_unimplemented(void)
   }  
   
   /* screenshot feature doesn't work yet in Win32 */
-#ifdef WIN32
+#ifndef GDK_WINDOWING_X11
   gtk_widget_hide(GET_COMPONENT("journalScreenshot"));
 #endif
 }  
@@ -2530,4 +2542,16 @@ wrapper_poppler_page_render_to_pixbuf (PopplerPage *page,
 
   wrapper_copy_cairo_surface_to_pixbuf (surface, pixbuf);
   cairo_surface_destroy (surface);
+}
+
+// wrapper for gtk_dialog_run that disables xinput (bug #159)
+
+gint wrapper_gtk_dialog_run(GtkDialog *dialog)
+{
+  gint response;
+
+  if (!gtk_check_version(2, 17, 0))
+    emergency_enable_xinput(GDK_MODE_DISABLED);
+  response = gtk_dialog_run(dialog);
+  return response;            
 }
