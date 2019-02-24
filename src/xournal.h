@@ -39,6 +39,12 @@
 #define MRU_SIZE 8 
 #define CONFIG_FILE "config"
 
+// apparently, not all Win32/64 compilers define WIN32 (?)
+
+#ifdef _WIN32
+#define WIN32
+#endif
+
 // version string for about box
 
 #ifdef WIN32
@@ -211,6 +217,8 @@ typedef struct Item {
 #define ITEM_RECOGNIZER 23
 #define ITEM_IMAGE 24
 #define ITEM_SELECTREGION 25
+#define ITEM_TEXT_PENDING 26 // will do when button release
+#define ITEM_IMAGE_PENDING 27 // will do when button release
 
 typedef struct Layer {
   GList *items; // the items on the layer, from bottom to top
@@ -308,6 +316,7 @@ typedef struct UIData {
   int window_default_width, window_default_height, scrollbar_step_increment;
   gboolean print_ruling; // print the paper ruling ?
   gboolean exportpdf_prefer_legacy; // prefer legacy code for export-to-pdf?
+  gboolean exportpdf_layers; // export PDF one layer at a time
   gboolean new_page_bg_from_pdf; // do new pages get a duplicated PDF/image background?
   int default_unit; // the default unit for paper sizes
   int startuptool; // the default tool at startup
@@ -315,6 +324,7 @@ typedef struct UIData {
   double zoom_step_factor; // the multiplicative factor in zoom in/out
   double startup_zoom;
   gboolean autoload_pdf_xoj;
+  gboolean autocreate_new_xoj;
   gboolean autosave_enabled, autosave_loop_running, autosave_need_catchup;
   GList *autosave_filename_list;
   int autosave_delay;

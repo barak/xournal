@@ -27,6 +27,7 @@
 #include "xo-misc.h"
 #include "xo-paint.h"
 #include "xo-image.h"
+#include "xo-selection.h"
 
 // the various formats in which we might present clipboard data
 #define TARGET_XOURNAL 1
@@ -401,10 +402,9 @@ void clipboard_paste(void)
   sel_data = gtk_clipboard_wait_for_contents(
       clipboard,
       gdk_atom_intern(XOURNAL_TARGET_ATOM, FALSE));
-#ifdef WIN32 // avoid a win32 bug showing images as xournal data
+  // avoid a bug (mostly win32, also xclip?) presenting images as xournal data
   if (gtk_selection_data_get_data_type(sel_data)!=gdk_atom_intern(XOURNAL_TARGET_ATOM, FALSE))
     { gtk_selection_data_free(sel_data); sel_data = NULL; }
-#endif
   ui.cur_item_type = ITEM_NONE;
   if (sel_data != NULL) { 
     clipboard_paste_from_xournal(sel_data);

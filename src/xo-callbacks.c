@@ -36,6 +36,8 @@
 #include "xo-selection.h"
 #include "xo-print.h"
 #include "xo-shapes.h"
+#include "xo-clipboard.h"
+#include "xo-image.h"
 
 void
 on_fileNew_activate                    (GtkMenuItem     *menuitem,
@@ -88,7 +90,7 @@ on_fileNewBackground_activate          (GtkMenuItem     *menuitem,
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(attach_opt), FALSE);
   gtk_file_chooser_set_extra_widget(GTK_FILE_CHOOSER (dialog), attach_opt);
   
-  if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
+  if (wrapper_gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
     gtk_widget_destroy(dialog);
     return;
   }
@@ -120,7 +122,7 @@ on_fileNewBackground_activate          (GtkMenuItem     *menuitem,
   /* open failed */
   dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
     GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, _("Error opening file '%s'"), filename);
-  gtk_dialog_run(GTK_DIALOG(dialog));
+  wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
   gtk_widget_destroy(dialog);
   g_free(filename);
 }
@@ -156,7 +158,7 @@ on_fileOpen_activate                   (GtkMenuItem     *menuitem,
 
   if (ui.default_path!=NULL) gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER (dialog), ui.default_path);
 
-  if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
+  if (wrapper_gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
     gtk_widget_destroy(dialog);
     return;
   }
@@ -171,7 +173,7 @@ on_fileOpen_activate                   (GtkMenuItem     *menuitem,
   /* open failed */
   dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
     GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, _("Error opening file '%s'"), filename);
-  gtk_dialog_run(GTK_DIALOG(dialog));
+  wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
   gtk_widget_destroy(dialog);
   g_free(filename);
 
@@ -200,7 +202,7 @@ on_fileSave_activate                   (GtkMenuItem     *menuitem,
   /* save failed */
   dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
     GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, _("Error saving file '%s'"), ui.filename);
-  gtk_dialog_run(GTK_DIALOG(dialog));
+  wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
   gtk_widget_destroy(dialog);
 }
 
@@ -243,7 +245,7 @@ on_fileSaveAs_activate                 (GtkMenuItem     *menuitem,
   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
 
   do {
-    if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
+    if (wrapper_gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
       gtk_widget_destroy(dialog);
       return;
     }
@@ -261,7 +263,7 @@ on_fileSaveAs_activate                 (GtkMenuItem     *menuitem,
       warning_dialog = gtk_message_dialog_new(GTK_WINDOW(winMain), 
         GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
         _("Should the file %s be overwritten?"), filename);
-      if (gtk_dialog_run(GTK_DIALOG(warning_dialog)) == GTK_RESPONSE_YES)
+      if (wrapper_gtk_dialog_run(GTK_DIALOG(warning_dialog)) == GTK_RESPONSE_YES)
         warn = FALSE;
       gtk_widget_destroy(warning_dialog);
     }
@@ -281,7 +283,7 @@ on_fileSaveAs_activate                 (GtkMenuItem     *menuitem,
   /* save failed */
   dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
     GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, _("Error saving file '%s'"), filename);
-  gtk_dialog_run(GTK_DIALOG(dialog));
+  wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
   gtk_widget_destroy(dialog);
   g_free(filename);
 }
@@ -332,6 +334,7 @@ on_filePrint_activate                  (GtkMenuItem     *menuitem,
       gtk_print_operation_set_job_name(print, xo_basename(ui.filename, FALSE));
     }
     g_signal_connect (print, "draw_page", G_CALLBACK (print_job_render_page), NULL);
+    if (!gtk_check_version(2, 17, 0)) emergency_enable_xinput(GDK_MODE_DISABLED); // bug #159
     res = gtk_print_operation_run(print, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG,
                                   GTK_WINDOW(winMain), NULL);
     if (res == GTK_PRINT_OPERATION_RESULT_APPLY) {
@@ -354,7 +357,7 @@ on_filePrintPDF_activate               (GtkMenuItem     *menuitem,
   char *filename, *in_fn;
   char stime[30];
   time_t curtime;
-  gboolean warn, prefer_legacy;
+  gboolean warn, warn_more, prefer_legacy;
   
   end_text();
   dialog = gtk_file_chooser_dialog_new(_("Export to PDF"), GTK_WINDOW (winMain),
@@ -387,17 +390,23 @@ on_filePrintPDF_activate               (GtkMenuItem     *menuitem,
   g_free(in_fn);
   
   do {
-    if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
+    if (wrapper_gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
       gtk_widget_destroy(dialog);
       return;
     }
     filename = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (dialog));
     warn = g_file_test(filename, G_FILE_TEST_EXISTS);
+    if (warn && bgpdf.filename!=NULL) warn_more = !strcmp(filename, bgpdf.filename->s);
+    else warn_more = FALSE;
     if (warn) {
       warning_dialog = gtk_message_dialog_new(GTK_WINDOW(winMain),
         GTK_DIALOG_MODAL, GTK_MESSAGE_QUESTION, GTK_BUTTONS_YES_NO,
-        _("Should the file %s be overwritten?"), filename);
-      if (gtk_dialog_run(GTK_DIALOG(warning_dialog)) == GTK_RESPONSE_YES)
+        warn_more?_("You are about to overwrite the file %s, "
+         "which you are annotating. This is not recommended, and cannot "
+         "be undone. All existing annotations will become permanently "
+         "part of the background. Are you sure you want to proceed?") :
+         _("Should the file %s be overwritten?"), filename);
+      if (wrapper_gtk_dialog_run(GTK_DIALOG(warning_dialog)) == GTK_RESPONSE_YES)
         warn = FALSE;
       gtk_widget_destroy(warning_dialog);
     }
@@ -413,11 +422,12 @@ on_filePrintPDF_activate               (GtkMenuItem     *menuitem,
       prefer_legacy = FALSE; // if failed, fall back to cairo
   }
   if (!prefer_legacy) { // try printing via cairo
+    g_unlink(filename);  // bug #160: poppler might have the file open if we're overwriting bgpdf, avoid corrupting it. 
     if (!print_to_pdf_cairo(filename)) {
       set_cursor_busy(FALSE);
       dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
         GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, _("Error creating file '%s'"), filename);
-      gtk_dialog_run(GTK_DIALOG(dialog));
+      wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
       gtk_widget_destroy(dialog);
     }
   }
@@ -1257,14 +1267,15 @@ gboolean papersize_need_init, papersize_width_valid, papersize_height_valid;
 
 #define STD_SIZE_A4 0
 #define STD_SIZE_A4R 1
-#define STD_SIZE_LETTER 2
-#define STD_SIZE_LETTER_R 3
-#define STD_SIZE_CUSTOM 4
+#define STD_SIZE_A5 2
+#define STD_SIZE_LETTER 3
+#define STD_SIZE_LETTER_R 4
+#define STD_SIZE_CUSTOM 5
 
 double unit_sizes[4] = {28.346, 72., 72./DISPLAY_DPI_DEFAULT, 1.};
-double std_widths[STD_SIZE_CUSTOM] =  {595.27, 841.89, 612., 792.};
-double std_heights[STD_SIZE_CUSTOM] = {841.89, 595.27, 792., 612.};
-double std_units[STD_SIZE_CUSTOM] = {UNIT_CM, UNIT_CM, UNIT_IN, UNIT_IN};
+double std_widths[STD_SIZE_CUSTOM] =  {595.27, 841.89, 420.94, 612., 792.};
+double std_heights[STD_SIZE_CUSTOM] = {841.89, 595.27, 595.27, 792., 612.};
+double std_units[STD_SIZE_CUSTOM] = {UNIT_CM, UNIT_CM, UNIT_CM, UNIT_IN, UNIT_IN};
 
 void
 on_journalPaperSize_activate           (GtkMenuItem     *menuitem,
@@ -1294,7 +1305,7 @@ on_journalPaperSize_activate           (GtkMenuItem     *menuitem,
        G_OBJECT(papersize_dialog), "comboStdSizes")), NULL);
   gtk_dialog_set_default_response(GTK_DIALOG(papersize_dialog), GTK_RESPONSE_OK);
        
-  response = gtk_dialog_run(GTK_DIALOG(papersize_dialog));
+  response = wrapper_gtk_dialog_run(GTK_DIALOG(papersize_dialog));
   gtk_widget_destroy(papersize_dialog);
   if (response != GTK_RESPONSE_OK) return;
 
@@ -1392,7 +1403,7 @@ on_papercolorOther_activate            (GtkMenuItem     *menuitem,
   rgb_to_gdkcolor(rgba, &gdkcolor);
   gtk_color_selection_set_current_color(colorsel, &gdkcolor);
   
-  if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+  if (wrapper_gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
     gtk_color_selection_get_current_color(colorsel, &gdkcolor);
     process_papercolor_activate(menuitem, COLOR_OTHER, gdkcolor_to_rgba(gdkcolor, 0xffff));
   }
@@ -1487,7 +1498,7 @@ on_journalLoadBackground_activate      (GtkMenuItem     *menuitem,
 
   if (ui.default_path!=NULL) gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER (dialog), ui.default_path);
   
-  if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
+  if (wrapper_gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
     gtk_widget_destroy(dialog);
     return;
   }
@@ -1505,7 +1516,7 @@ on_journalLoadBackground_activate      (GtkMenuItem     *menuitem,
     dialog = gtk_message_dialog_new(GTK_WINDOW(winMain), GTK_DIALOG_MODAL,
       GTK_MESSAGE_ERROR, GTK_BUTTONS_OK,
       _("Error opening background '%s'"), filename);
-    gtk_dialog_run(GTK_DIALOG(dialog));
+    wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
     g_free(filename);
     return;
@@ -2101,7 +2112,7 @@ on_toolsTextFont_activate              (GtkMenuItem     *menuitem,
   str = make_cur_font_name();
   gtk_font_selection_dialog_set_font_name(GTK_FONT_SELECTION_DIALOG(dialog), str);
   g_free(str);
-  if (gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
+  if (wrapper_gtk_dialog_run(GTK_DIALOG(dialog)) != GTK_RESPONSE_OK) {
     gtk_widget_destroy(dialog);
     return;
   }
@@ -2323,7 +2334,7 @@ on_helpAbout_activate                  (GtkMenuItem     *menuitem,
   labelTitle = GTK_LABEL(g_object_get_data(G_OBJECT(aboutDialog), "labelTitle"));
   gtk_label_set_markup(labelTitle, 
     "<span size=\"xx-large\" weight=\"bold\">Xournal " VERSION_STRING "</span>");
-  gtk_dialog_run (GTK_DIALOG(aboutDialog));
+  wrapper_gtk_dialog_run (GTK_DIALOG(aboutDialog));
   gtk_widget_destroy(aboutDialog);
 }
 
@@ -2439,6 +2450,12 @@ on_canvas_button_press_event           (GtkWidget       *widget,
 
   if (!finite_sized(event->x) || !finite_sized(event->y)) return FALSE; // Xorg 7.3 bug
 
+//is_touch = (strstr(event->device->name, ui.device_for_touch) != NULL) && ui.use_xinput;
+  is_touch = (!strcmp(event->device->name, ui.device_for_touch)) && ui.use_xinput;
+  if (is_touch && ui.pen_disables_touch && ui.in_proximity) return FALSE;
+
+  if (is_touch && is_core && ui.cur_item_type == ITEM_TEXT && ui.touch_as_handtool && ui.in_proximity) return FALSE; // workaround for touch = core as handtool
+
   if (ui.cur_item_type == ITEM_TEXT) {
     if (!is_event_within_textview(event)) end_text();
     else return FALSE;
@@ -2465,9 +2482,6 @@ on_canvas_button_press_event           (GtkWidget       *widget,
   ui.stroke_device = event->device;
   ui.current_ignore_btn_reported_up = ui.ignore_btn_reported_up;
 
-  is_touch = (strstr(event->device->name, ui.device_for_touch) != NULL);
-  if (is_touch && ui.pen_disables_touch && ui.in_proximity) return FALSE;
-
   if (ui.use_erasertip && event->device->source == GDK_SOURCE_ERASER)
     mapping = NUM_BUTTONS; // eraser mapping
   else if (ui.touch_as_handtool && is_touch)
@@ -2490,7 +2504,7 @@ on_canvas_button_press_event           (GtkWidget       *widget,
     dialog = gtk_message_dialog_new(GTK_WINDOW(winMain), GTK_DIALOG_MODAL,
       GTK_MESSAGE_WARNING, GTK_BUTTONS_OK, _("Drawing is not allowed on the "
       "background layer.\n Switching to Layer 1."));
-    gtk_dialog_run(GTK_DIALOG(dialog));
+    wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
     on_viewShowLayer_activate(NULL, NULL);
     return FALSE;
@@ -2550,10 +2564,17 @@ on_canvas_button_press_event           (GtkWidget       *widget,
     start_vertspace((GdkEvent *)event);
   }
   else if (ui.toolno[mapping] == TOOL_TEXT) {
-    start_text((GdkEvent *)event, NULL);
+    ui.cur_item_type = ITEM_TEXT_PENDING; 
+    /* 2016-04-05: postpone until button_release, as an emergency xinput disable 
+       is needed for text box to be responsive, but disabling while we have an 
+       automatic pointer grab results in mangled event processing upon re-enabling */
   }
   else if (ui.toolno[mapping] == TOOL_IMAGE) {
-    insert_image((GdkEvent *)event);
+    ui.cur_item_type = ITEM_IMAGE_PENDING; 
+    /* 2016-04-05: postpone until button_release, for same reason as above;
+       emergency xinput disable needed on some window managers to avoid an
+       unresponsive dialog box, but shouldn't do it while we have automatic
+       pointer grab on the device */
   }
   return FALSE;
 }
@@ -2601,6 +2622,13 @@ on_canvas_button_release_event         (GtkWidget       *widget,
     finalize_resizesel();
   }
   else if (ui.cur_item_type == ITEM_HAND) {
+    ui.cur_item_type = ITEM_NONE;
+  }
+  else if (ui.cur_item_type == ITEM_TEXT_PENDING) {
+    start_text((GdkEvent *)event, NULL);
+  }
+  else if (ui.cur_item_type == ITEM_IMAGE_PENDING) {
+    insert_image((GdkEvent *)event);
     ui.cur_item_type = ITEM_NONE;
   }
   
@@ -2667,6 +2695,7 @@ on_canvas_proximity_event              (GtkWidget       *widget,
   printf("DEBUG: proximity %s (%s)\n", 
      (event->type == GDK_PROXIMITY_IN)?"in":"out", event->device->name);
 #endif
+  if (!strcmp(event->device->name, ui.device_for_touch)) return FALSE;
   ui.in_proximity = (event->type==GDK_PROXIMITY_IN);
   return FALSE;
 }
@@ -2708,7 +2737,9 @@ on_canvas_key_press_event              (GtkWidget       *widget,
   pgheight = GTK_WIDGET(canvas)->allocation.height;
   adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(GET_COMPONENT("scrolledwindowMain")));
 
-  if (event->keyval == GDK_Page_Down || event->keyval == GDK_Down) {
+  if (event->keyval == GDK_Page_Down || event->keyval == GDK_Down ||
+       (event->keyval == GDK_space && event->state == 0))
+  {
     if (ui.view_continuous!=VIEW_MODE_CONTINUOUS && 
          (0.96 * ui.zoom * ui.cur_page->height < pgheight ||
           adj->value == adj->upper-pgheight)) 
@@ -2723,7 +2754,9 @@ on_canvas_key_press_event              (GtkWidget       *widget,
     if (adj->value == adj->upper-pgheight) return TRUE; // don't send focus away
   }
 
-  if (event->keyval == GDK_Page_Up || event->keyval == GDK_Up) {
+  if (event->keyval == GDK_Page_Up || event->keyval == GDK_Up ||
+       (event->keyval == GDK_space && event->state == GDK_SHIFT_MASK)) 
+  {
     if (ui.view_continuous!=VIEW_MODE_CONTINUOUS && 
          (0.96 * ui.zoom * ui.cur_page->height < pgheight ||
           adj->value == adj->lower))
@@ -2752,13 +2785,19 @@ on_canvas_motion_notify_event          (GtkWidget       *widget,
   GdkModifierType mask;
 
   // if pen is sending motion events then it's in proximity
-  if (event->device->source == GDK_SOURCE_PEN) ui.in_proximity = TRUE;
+  if (event->device->source == GDK_SOURCE_PEN &&
+      strcmp(event->device->name, ui.device_for_touch)) ui.in_proximity = TRUE;
   
   /* we don't care about this event unless some operation is in progress;
      or if there's a selection (then we might want to change the mouse
      cursor to indicate the possibility of resizing) */  
   if (ui.cur_item_type == ITEM_NONE && ui.selection==NULL) return FALSE;
   if (ui.cur_item_type == ITEM_TEXT || ui.cur_item_type == ITEM_IMAGE) return FALSE;
+
+#ifdef INPUT_DEBUG
+  printf("DEBUG: MotionNotify (%s) (x,y)=(%.2f,%.2f), modifier %x\n", 
+    event->device->name, event->x, event->y, event->state);
+#endif
 
   is_core = (event->device == gdk_device_get_core_pointer());
   if (!ui.use_xinput && !is_core) return FALSE;
@@ -2782,17 +2821,14 @@ on_canvas_motion_notify_event          (GtkWidget       *widget,
     ui.stroke_device = event->device;
     // what if touchscreen is mapped to hand or disabled and was initially received as Core Pointer?
     if ((ui.touch_as_handtool || (ui.pen_disables_touch && ui.in_proximity))
-        && strstr(event->device->name, ui.device_for_touch) != NULL) {
+//      && strstr(event->device->name, ui.device_for_touch) != NULL) {
+        && !strcmp(event->device->name, ui.device_for_touch)) {
       abort_stroke(); // in case we were doing a stroke this aborts it; otherwise nothing happens
       return FALSE;
     }
   }
   if (ui.ignore_other_devices && ui.stroke_device!=event->device && !we_have_no_clue) return FALSE;
 
-#ifdef INPUT_DEBUG
-  printf("DEBUG: MotionNotify (%s) (x,y)=(%.2f,%.2f), modifier %x\n", 
-    event->device->name, event->x, event->y, event->state);
-#endif
   
   if (looks_wrong) {
     gdk_device_get_state(ui.stroke_device, event->window, NULL, &mask);
@@ -3290,7 +3326,7 @@ on_mru_activate                        (GtkMenuItem     *menuitem,
   /* open failed */
   dialog = gtk_message_dialog_new(GTK_WINDOW (winMain), GTK_DIALOG_DESTROY_WITH_PARENT,
     GTK_MESSAGE_ERROR, GTK_BUTTONS_OK, _("Error opening file '%s'"), ui.mru[which]);
-  gtk_dialog_run(GTK_DIALOG(dialog));
+  wrapper_gtk_dialog_run(GTK_DIALOG(dialog));
   gtk_widget_destroy(dialog);
   delete_mru_entry(which);
 }
@@ -3516,7 +3552,7 @@ on_viewSetZoom_activate                (GtkMenuItem     *menuitem,
   gtk_widget_show(zoom_dialog);
   
   do {
-    response = gtk_dialog_run(GTK_DIALOG(zoom_dialog));
+    response = wrapper_gtk_dialog_run(GTK_DIALOG(zoom_dialog));
     if (response == GTK_RESPONSE_OK || response == GTK_RESPONSE_APPLY) {
       ui.zoom = DEFAULT_ZOOM*zoom_percent/100;
       gnome_canvas_set_pixels_per_unit(canvas, ui.zoom);
@@ -3807,11 +3843,12 @@ on_optionsDesignateTouchscreen_activate
   for (dev_list = gdk_devices_list(), count = 0; dev_list != NULL; dev_list = dev_list->next, count++) {
     dev = GDK_DEVICE(dev_list->data);
     gtk_combo_box_append_text(GTK_COMBO_BOX(comboList), dev->name);
-    if (strstr(dev->name, ui.device_for_touch)!=NULL)
+//  if (strstr(dev->name, ui.device_for_touch)!=NULL)
+    if (!strcmp(dev->name, ui.device_for_touch))
       gtk_combo_box_set_active(GTK_COMBO_BOX(comboList), count);
   }
 
-  response = gtk_dialog_run(dialog);
+  response = wrapper_gtk_dialog_run(dialog);
   if (response == GTK_RESPONSE_OK) {
     str = gtk_combo_box_get_active_text(GTK_COMBO_BOX(comboList));
     if (str!=NULL) {
@@ -3846,5 +3883,13 @@ on_optionsLegacyPDFExport_activate     (GtkMenuItem     *menuitem,
                                         gpointer         user_data)
 {
   ui.exportpdf_prefer_legacy = gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM (menuitem));
+}
+
+
+void
+on_optionsLayersPDFExport_activate     (GtkMenuItem     *menuitem,
+                                        gpointer         user_data)
+{
+  ui.exportpdf_layers = gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM (menuitem));
 }
 
