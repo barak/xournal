@@ -1,3 +1,23 @@
+Version 0.4.1 (Sep 15, 2007):
+  - bugfix: compatibility with new versions of pdftoppm (thanks to V. Ciancia)
+  - GTK+ 2.11 event processing bugfix
+  - minor bugfixes: hand tool, handling of filenames containing '&'
+  - desktop and MIME files (thanks to Mathieu Bouchard) + updated installer
+  - config options: left-handed scrollbar (contributed by Uwe Winter),
+    hide some menu items (customizable in config file), auto-save preferences
+
+Version 0.4.0.1 (Sep 3, 2007):
+  - bugfixes for GTK+ 2.11 behavior (thanks to everyone who reported bugs)
+
+Version 0.4 (Aug 15, 2007):
+  - text tool (handles most TrueType and Type1 fonts)
+  - font selection dialog and button
+  - keyboard mappings (arrow keys)
+  - menu mnemonics and shortcuts (suggestions by Jean-Baptiste Rouquier)
+  - more responsive hand tool
+  - bugfix for GTK+ 2.11 XInput behavior (thanks to Robert Gerlach)
+  - various minor bugfixes and enhancements
+
 Version 0.3.3 (Jan 31, 2007):
   - bugfix: upon loading a new file, zoom is set to default startup zoom
   - config option to allow input from a mouse or other core pointer device
