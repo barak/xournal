@@ -1,3 +1,28 @@
+xournal (1:0.4.8.2016-1) unstable; urgency=medium
+
+  * New upstream release (closes: #869821)
+    - removes ancient xxx(null) formal parameter (closes: #748165)
+  * Upgrade to debhelper 12, tweaking build scripts accordingly
+    - build architecture configuration issue (closes: #876098)
+    - enables parallel building (closes: #820619)
+  * Upgrade to Standards-Version 4.3.0
+  * Remove menu file, per policy
+  * Trim debian/changelog whitespace
+  * Add pointer to packaging repo in salsa
+  * Disable ldflags patch; handled automatically by debhelper
+  * Remove debian/xournal.1 emacs major mode comment; emacs knows all
+  * Harden
+  * Add self as uploader
+  * Remove now-superfluous linker as-needed quilt patch
+  * Add desktop file tweaks quilt patch
+  * Add doc-base entry for user's manual
+  * Address some compiler warnings quilt patch
+  * Catalan translation update patch (closes: #864863)
+  * Remove KDE3 cruft (closes: #875523)
+  * Include 8 upstream post-release commits as quilt patches
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Tue, 05 Mar 2019 12:23:51 +0000
+
 xournal (1:0.4.8-1) unstable; urgency=medium
 
   * New upstream release (Closes: #756974, #700586, #659586)
