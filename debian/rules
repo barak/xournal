@@ -7,6 +7,8 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 # Add extra target so desktop crud is also installed.
 # Remove autotools-installed HTML manual; is installed directly from source tree.
+# Remove /usr/share/mimelnk/ files, these are cruft left from KDE3.
 override_dh_auto_install:
 	dh_auto_install -- desktop-install
 	-rm --verbose -rf $(CURDIR)/debian/xournal/usr/share/xournal/html-doc
+	-rm --verbose -f $(CURDIR)/debian/xournal/usr/share/mimelnk/*
