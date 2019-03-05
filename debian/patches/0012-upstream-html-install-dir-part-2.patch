@@ -1,0 +1,22 @@
+From: Denis Auroux <auroux@users.sourceforge.net>
+Date: Fri, 1 Jun 2018 13:22:44 -0700
+Subject: upstream html install dir part 2
+
+Fix: Install html documentation in docdir/htmldir instead of html-doc
+---
+ Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 6c42573..4c61561 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -25,7 +25,7 @@ install-data-local:
+ 	    fi \
+ 	  done; \
+ 	  if test ! -e $(DESTDIR)$(htmldir)/pixmaps; then \
+-	    ln -s $(DESTDIR)$(pkgdatadir)/pixmaps $(DESTDIR)$(htmldir)/pixmaps; \
++	    ln -s $(pkgdatadir)/pixmaps $(DESTDIR)$(htmldir)/pixmaps; \
+ 	  fi \
+ 	fi; \
+ 	echo "*** Desktop files, icons, MIME types not installed. Run 'make desktop-install'"; \

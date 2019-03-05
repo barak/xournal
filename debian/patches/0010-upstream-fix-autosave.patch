@@ -1,0 +1,42 @@
+From: Denis Auroux <auroux@users.sourceforge.net>
+Date: Mon, 16 Apr 2018 14:23:05 -0700
+Subject: upstream fix autosave
+
+Fix sporadic wrong detection of auto-save restores and creation of randomly named files when opening files from recently opened list
+---
+ po/ChangeLog  | 1 +
+ src/xo-file.c | 5 ++++-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/po/ChangeLog b/po/ChangeLog
+index 5dd583f..2fc4ee2 100644
+--- a/po/ChangeLog
++++ b/po/ChangeLog
+@@ -1,3 +1,4 @@
++- added Russian translation (Igor Nedoboy)
+ - updated Italian translation (Marco Ciampa)
+ 
+ Version 0.4.8:
+diff --git a/src/xo-file.c b/src/xo-file.c
+index 4b8b5b2..a3ae319 100644
+--- a/src/xo-file.c
++++ b/src/xo-file.c
+@@ -1169,7 +1169,6 @@ gboolean open_journal(char *filename)
+   ui.layerno = ui.cur_page->nlayers-1;
+   ui.cur_layer = (struct Layer *)(g_list_last(ui.cur_page->layers)->data);
+   ui.zoom = ui.startup_zoom;
+-  update_file_name(g_strdup(filename));
+   gnome_canvas_set_pixels_per_unit(canvas, ui.zoom);
+   make_canvas_items();
+   update_page_stuff();
+@@ -1196,6 +1195,10 @@ gboolean open_journal(char *filename)
+   }
+   else ui.saved = TRUE;
+ 
++  update_file_name(g_strdup(filename)); /* postpone till now, as it
++     may corrupt the contents of filename if it was in MRU data -- updating the MRU
++     causes redundant MRU entries to get free()'d */
++     
+   g_free(filename_actual);
+   ui.need_autosave = !ui.saved;
+   return TRUE;
