@@ -1,0 +1,27 @@
+From: "Barak A. Pearlmutter" <barak+git@pearlmutter.net>
+Date: Thu, 7 Mar 2019 14:29:42 +0000
+Subject: xoj file icon
+
+The Nautilus file browser, and presumably other programs, display .xoj
+files using an icon for plain text files.  This was reported in Ubuntu.
+
+See: https://bugs.launchpad.net/ubuntu/+source/xournal/+bug/1306290
+
+This tiny patch, submitted by anonymous user tyzch in a comment to the
+above bug report discussion, fixes the problem.
+---
+ xournal.xml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xournal.xml b/xournal.xml
+index ebcebd1..597f8d1 100644
+--- a/xournal.xml
++++ b/xournal.xml
+@@ -2,6 +2,7 @@
+ <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+ 	<mime-type type="application/x-xoj">
+ 		<comment>Xournal note file</comment>
++		<icon name="xoj"/>
+ 		<glob pattern="*.xoj"/>
+ 	</mime-type>
+ </mime-info>
