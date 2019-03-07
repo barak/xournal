@@ -1,3 +1,10 @@
+xournal (1:0.4.8.2016-2) unstable; urgency=medium
+
+  * Quilt patch to fix .xoj file icon, see
+    https://bugs.launchpad.net/ubuntu/+source/xournal/+bug/1306290
+
+ -- Barak A. Pearlmutter <barak@pearlmutter.net>  Thu, 07 Mar 2019 14:33:47 +0000
+
 xournal (1:0.4.8.2016-1) unstable; urgency=medium
 
   * New upstream release (closes: #869821)
