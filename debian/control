@@ -6,7 +6,7 @@ Uploaders: Barak A. Pearlmutter <bap@debian.org>
 Build-Depends: debhelper-compat (= 12),
      libgtk2.0-dev (>= 2.10), libgnomecanvas2-dev,
      libpoppler-glib-dev (>= 0.5.4)
-Standards-Version: 4.3.0
+Standards-Version: 4.4.0
 Homepage: http://xournal.sourceforge.net/
 Vcs-Git: https://salsa.debian.org/debian/xournal.git
 Vcs-Browser: https://salsa.debian.org/debian/xournal
