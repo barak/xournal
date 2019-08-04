@@ -1,3 +1,10 @@
+xournal (1:0.4.8.2016-3) unstable; urgency=medium
+
+  * Quilt patch for upstream translation
+  * bump standards version
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Sun, 04 Aug 2019 21:39:38 +0200
+
 xournal (1:0.4.8.2016-2) unstable; urgency=medium
 
   * Quilt patch to fix .xoj file icon, see
