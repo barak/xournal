@@ -1,0 +1,93 @@
+From: "Barak A. Pearlmutter" <barak+git@pearlmutter.net>
+Date: Mon, 5 Aug 2019 10:45:19 +0200
+Subject: autoconf libs
+
+---
+ configure.in             | 18 ++++++------------
+ src/Makefile.am          | 13 ++++---------
+ src/ttsubset/Makefile.am |  2 +-
+ 3 files changed, 11 insertions(+), 22 deletions(-)
+
+diff --git a/configure.in b/configure.in
+index d8db0c4..9594b0e 100644
+--- a/configure.in
++++ b/configure.in
+@@ -11,12 +11,15 @@ AC_PROG_RANLIB
+ AM_PROG_AR
+ AC_HEADER_STDC
+ 
+-LDFLAGS="$LDFLAGS -lz -lm"
++AC_SEARCH_LIBS([atan2], [m])
++AC_SEARCH_LIBS([hypot], [m])
++AC_SEARCH_LIBS([gzprintf], [z])
++AC_SEARCH_LIBS([XUngrabButton], [X11])
+ 
+ pkg_modules="gtk+-2.0 >= 2.10.0 libgnomecanvas-2.0 >= 2.4.0 poppler-glib >= 0.5.4 pangoft2 >= 1.0"
+ PKG_CHECK_MODULES(PACKAGE, [$pkg_modules])
+-AC_SUBST(PACKAGE_CFLAGS)
+-AC_SUBST(PACKAGE_LIBS)
++CFLAGS="$PACKAGE_CFLAGS $CFLAGS"
++LIBS="$PACKAGE_LIBS $LIBS"
+ 
+ dnl detect Windows environment...
+ AC_CANONICAL_HOST
+@@ -30,15 +33,6 @@ esac
+ AC_MSG_RESULT([$os_win32])
+ AM_CONDITIONAL(WIN32, test "$os_win32" = "yes")
+ 
+-dnl test for Linux, so we can add -lX11 manually for broken distributions
+-case "$host" in
+- *-*-linux*)
+-   os_linux=yes;;
+- *)
+-   os_linux=no;;
+-esac
+-AM_CONDITIONAL(LINUX, test "$os_linux" = "yes")
+-
+ GETTEXT_PACKAGE=xournal
+ AC_SUBST(GETTEXT_PACKAGE)
+ AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE", [Gettext package.])
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 9e7de59..c4ee81c 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -9,7 +9,7 @@ endif
+ AM_CPPFLAGS = \
+ 	-DPACKAGE_DATA_DIR=\""$(datadir)"\" \
+ 	-DPACKAGE_LOCALE_DIR=\""$(prefix)/$(DATADIRNAME)/locale"\" \
+-	$(PACKAGE_CFLAGS)
++	$(CFLAGS)
+ 
+ bin_PROGRAMS = xournal
+ 
+@@ -27,14 +27,9 @@ xournal_SOURCES = \
+ 	xo-callbacks.c xo-callbacks.h \
+ 	xo-shapes.c xo-shapes.h
+ 
++xournal_LDADD = ttsubset/libttsubset.a
++
+ if WIN32
+   xournal_LDFLAGS = -mwindows
+-  xournal_LDADD = win32/xournal.res ttsubset/libttsubset.a $(PACKAGE_LIBS) $(INTLLIBS) -lz
+-else
+-if LINUX
+-  xournal_LDADD = ttsubset/libttsubset.a $(PACKAGE_LIBS) $(INTLLIBS) -lX11 -lz -lm
+-else
+-  xournal_LDADD = ttsubset/libttsubset.a $(PACKAGE_LIBS) $(INTLLIBS) -lz -lm
++  xournal_LDADD += win32/xournal.res $(PACKAGE_LIBS) $(INTLLIBS) -lz
+ endif
+-endif
+-
+diff --git a/src/ttsubset/Makefile.am b/src/ttsubset/Makefile.am
+index a17d1a4..319b76d 100644
+--- a/src/ttsubset/Makefile.am
++++ b/src/ttsubset/Makefile.am
+@@ -1,7 +1,7 @@
+ ## Process this file with automake to produce Makefile.in
+ 
+ AM_CPPFLAGS = \
+-	$(PACKAGE_CFLAGS) -DNO_MAPPERS -DNO_TYPE3 -DNO_TYPE42
++	$(CFLAGS) -DNO_MAPPERS -DNO_TYPE3 -DNO_TYPE42
+ 
+ noinst_LIBRARIES = libttsubset.a
+ 
