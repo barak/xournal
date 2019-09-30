@@ -1,3 +1,10 @@
+xournal (1:0.4.8.2016-5) unstable; urgency=medium
+
+  * bump policy
+  * delete mimelnk harder (closes: #875523)
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 30 Sep 2019 21:27:08 +0100
+
 xournal (1:0.4.8.2016-4) unstable; urgency=medium
 
   * Quilt patch to rejigger autoconf for -lX11 on non-linux arch
@@ -39,7 +46,7 @@ xournal (1:0.4.8.2016-1) unstable; urgency=medium
   * Add doc-base entry for user's manual
   * Address some compiler warnings quilt patch
   * Catalan translation update patch (closes: #864863)
-  * Remove KDE3 cruft (closes: #875523)
+  * Remove KDE3 cruft (failed to close #875523 due to a bug oops oops)
   * Include 8 upstream post-release commits as quilt patches
 
  -- Barak A. Pearlmutter <bap@debian.org>  Tue, 05 Mar 2019 12:23:51 +0000
