@@ -11,4 +11,4 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 override_dh_auto_install:
 	dh_auto_install -- desktop-install
 	-rm --verbose -rf $(CURDIR)/debian/xournal/usr/share/xournal/html-doc
-	-rm --verbose -f $(CURDIR)/debian/xournal/usr/share/mimelnk/*
+	-rm --verbose -rf $(CURDIR)/debian/xournal/usr/share/mimelnk
