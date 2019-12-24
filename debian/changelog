@@ -1,9 +1,11 @@
-xournal (1:0.4.8.2016-4) UNRELEASED; urgency=medium
+xournal (1:0.4.8.2016-6) UNRELEASED; urgency=medium
 
+  [ Debian Janitor ]
   * debian/copyright: use spaces rather than tabs to start continuation
     lines.
+  * Update standards version to 4.5.0, no changes needed.
 
- -- Debian Janitor <janitor@jelmer.uk>  Tue, 24 Dec 2019 21:33:23 +0000
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 20 Apr 2020 11:16:04 +0100
 
 xournal (1:0.4.8.2016-5) unstable; urgency=medium
 
