@@ -2,32 +2,32 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Xournal
 Upstream-Contact: Denis Auroux <auroux@math.berkeley.edu>
 Source: https://xournal.sourceforge.net/
-	https://sourceforge.net/projects/xournal
-	https://git.code.sf.net/p/xournal/code
+        https://sourceforge.net/projects/xournal
+        https://git.code.sf.net/p/xournal/code
 
 Files: *
 Copyright: 2007-2019 Denis Auroux <auroux@math.berkeley.edu>, with contributions by
-		Alvaro, Kit Barnes, Eduardo de Barros Lima, Mathieu Bouchard,
-		Ole Joergen Broenner, Robert Buchholz, William Chao, Vincenzo Ciancia,
-		Luca de Cicco, Michele Codutti, Robert Gerlach, Daniel German,
-		Dirk Gerrits, Simon Guest, Andreas Huettel,
-		Lukasz Kaiser, Ian Woo Kim, Timo Kluck, David Kolibac, Danny Kukawka,
-		Stefan Lembach, Bob McElrath, Mutse, Andy Neitzke, David Planella,
-		Marco Poletti, Alex Ray, Jean-Baptiste Rouquier, Victor Saase,
-		Hiroshi Saito, Luciano Siqueira, Marco Souza, Mike Ter Louw,
-		Mis Uszatek, Uwe Winter, Edward Z. Yang, Lu Zhihe.
+ 		Alvaro, Kit Barnes, Eduardo de Barros Lima, Mathieu Bouchard,
+ 		Ole Joergen Broenner, Robert Buchholz, William Chao, Vincenzo Ciancia,
+ 		Luca de Cicco, Michele Codutti, Robert Gerlach, Daniel German,
+ 		Dirk Gerrits, Simon Guest, Andreas Huettel,
+ 		Lukasz Kaiser, Ian Woo Kim, Timo Kluck, David Kolibac, Danny Kukawka,
+ 		Stefan Lembach, Bob McElrath, Mutse, Andy Neitzke, David Planella,
+ 		Marco Poletti, Alex Ray, Jean-Baptiste Rouquier, Victor Saase,
+ 		Hiroshi Saito, Luciano Siqueira, Marco Souza, Mike Ter Louw,
+ 		Mis Uszatek, Uwe Winter, Edward Z. Yang, Lu Zhihe.
 License: GPL-2+
 
 Files: src/ttsubset/*
 Copyright: 2002, 2003, Sun Microsystems, Inc.
-	   2009 Denis Auroux <auroux@math.berkeley.edu>
+           2009 Denis Auroux <auroux@math.berkeley.edu>
 License: SUN
 
 Files: debian/*
 Copyright: 2007, Mathieu Bouchard <mbouchar@bioinfo.ulaval.ca>
-	   2008, Lucas Nussbaum <lucas@lucas-nussbaum.net>
-	   2009-2014, Carlo Segre <segre@debian.org>
-	   2019, Barak A. Pearlmutter <bap@debian.org>
+           2008, Lucas Nussbaum <lucas@lucas-nussbaum.net>
+           2009-2014, Carlo Segre <segre@debian.org>
+           2019, Barak A. Pearlmutter <bap@debian.org>
 License: GPL-2+
 
 License: GPL-2+

@@ -1,3 +1,10 @@
+xournal (1:0.4.8.2016-4) UNRELEASED; urgency=medium
+
+  * debian/copyright: use spaces rather than tabs to start continuation
+    lines.
+
+ -- Debian Janitor <janitor@jelmer.uk>  Tue, 24 Dec 2019 21:33:23 +0000
+
 xournal (1:0.4.8.2016-5) unstable; urgency=medium
 
   * bump policy
