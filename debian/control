@@ -14,7 +14,7 @@ Vcs-Browser: https://salsa.debian.org/debian/xournal
 
 Package: xournal
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, ghostscript-x
+Depends: ${shlibs:Depends}, ${misc:Depends}, ghostscript
 Description: GTK+ Application for note taking
  Xournal is a GTK+ application for notetaking, sketching and
  keeping a journal using a stylus. It can also be used to
