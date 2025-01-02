@@ -1,3 +1,9 @@
+xournal (1:0.4.8.2016-8) UNRELEASED; urgency=low
+
+  * Depend on ghostscript instead of ghostscript-x. (Closes: #1053330)
+
+ -- Witold Baryluk <witold.baryluk@gmail.com>  Sun, 01 Oct 2023 22:47:08 +0000
+
 xournal (1:0.4.8.2016-7) unstable; urgency=medium
 
   * Rules do not require root LOWER CASE NO (closes: #972813)
