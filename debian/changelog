@@ -1,8 +1,11 @@
-xournal (1:0.4.8.2016-8) UNRELEASED; urgency=low
+xournal (1:0.4.8.2016-8) unstable; urgency=low
 
+  * Team upload.
+
+  [ Witold Baryluk ]
   * Depend on ghostscript instead of ghostscript-x. (Closes: #1053330)
 
- -- Witold Baryluk <witold.baryluk@gmail.com>  Sun, 01 Oct 2023 22:47:08 +0000
+ -- Chris Hofstaedtler <zeha@debian.org>  Thu, 02 Jan 2025 03:56:54 +0100
 
 xournal (1:0.4.8.2016-7) unstable; urgency=medium
 
