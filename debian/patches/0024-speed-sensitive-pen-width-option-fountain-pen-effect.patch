@@ -1,0 +1,345 @@
+From: Denis Auroux <auroux@users.sourceforge.net>
+Date: Fri, 11 Jun 2021 12:53:00 -0400
+Subject: speed-sensitive pen width option ("fountain pen" effect) (largely
+ contributed by Massoud Babaie-Zadeh) (see under Options -> Pen and Touch)
+
+---
+ AUTHORS              |  8 ++++----
+ ChangeLog            |  6 ++++--
+ html-doc/manual.html | 12 ++++++------
+ src/xo-callbacks.c   | 18 +++++++++++++++++-
+ src/xo-callbacks.h   |  4 ++++
+ src/xo-file.c        | 18 ++++++++++++++----
+ src/xo-interface.c   |  9 +++++++++
+ src/xo-misc.c        |  3 +++
+ src/xo-paint.c       | 36 +++++++++++++++++++++++++++++++-----
+ src/xournal.h        |  5 +++++
+ xournal.glade        | 10 ++++++++++
+ 11 files changed, 107 insertions(+), 22 deletions(-)
+
+diff --git a/AUTHORS b/AUTHORS
+index fc1d498..6648f4a 100644
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -2,10 +2,10 @@ Main author: Denis Auroux (auroux@math.harvard.edu)
+ 
+ The source code includes contributions by the following people:
+ 
+-Alvaro, Kit Barnes, Eduardo de Barros Lima, Mathieu Bouchard, 
+-Ole Joergen Broenner, Robert Buchholz, William Chao, Vincenzo Ciancia, 
+-Luca de Cicco, Michele Codutti, Robert Gerlach, Daniel German, 
+-Dirk Gerrits, Simon Guest, Andreas Huettel, 
++Alvaro, Massoud Babaie-Zadeh, Kit Barnes, Eduardo de Barros Lima, 
++Mathieu Bouchard, Ole Joergen Broenner, Robert Buchholz, William Chao,
++Vincenzo Ciancia, Luca de Cicco, Michele Codutti, Robert Gerlach, 
++Daniel German, Dirk Gerrits, Simon Guest, Andreas Huettel, 
+ Lukasz Kaiser, Ian Woo Kim, Timo Kluck, David Kolibac, Danny Kukawka, 
+ Stefan Lembach, Bob McElrath, Mutse, Andy Neitzke, David Planella, 
+ Marco Poletti, Alex Ray, Jean-Baptiste Rouquier, Victor Saase, 
+diff --git a/ChangeLog b/ChangeLog
+index 486de38..8432463 100644
+--- a/ChangeLog
++++ b/ChangeLog
+@@ -1,12 +1,14 @@
+ This version:
+   - keep selection in clipboard after exiting
+   - config option to fix unreliable stroke origin (Lenovo AES pen issues)
+-     (use in conjunction with xsetwacom to set RawSample = 1 or 2 until
+-      wacom driver fix is committed).
++     (use in conjunction with xsetwacom, set RawSample = 1 or 2)
+   - added Russian translation (Igor Nedoboy)
+   - selection resize snaps to preserve aspect ratio
++     (resize box is red while snapped to aspect-preserving)
+   - text edition box background color matches paper if page has a solid background
+   - control+mousewheel scrolls in/out (only if XInput option enabled)
++  - speed-sensitive pen width option ("fountain pen" effect) (Massoud Babaie-Zadeh)
++     (under Options -> Pen and Touch)
+ 
+ Version 0.4.8.2016 (July 20, 2017 bugfix release):
+  * Bug fixes:
+diff --git a/html-doc/manual.html b/html-doc/manual.html
+index 4164d14..99e1fdc 100644
+--- a/html-doc/manual.html
++++ b/html-doc/manual.html
+@@ -39,7 +39,7 @@
+ <p>
+ Xournal can be downloaded at
+ <a href="http://xournal.sourceforge.net/">http://xournal.sourceforge.net/</a> or 
+-<a href="http://math.berkeley.edu/~auroux/software/xournal/">http://math.berkeley.edu/~auroux/software/xournal/</a>
++<a href="http://people.math.harvard.edu/~auroux/software/xournal/">http://people.math.harvard.edu/~auroux/software/xournal/</a>
+ </p>
+ <p>
+  Xournal aims to provide superior graphical quality (subpixel resolution) and overall
+@@ -712,14 +712,14 @@ the name and point size of the default text font.</li>
+ <h2 class="subtitle">Author information, license, bug-reports</h2>
+ <p>
+ Xournal is written by Denis Auroux
+-(aur<!--despam-->oux<span>&#x40;</span><span>math</span>&#x2e;<span>berkeley&#x2e;edu).
++(aur<!--despam-->oux<span>&#x40;</span><span>math</span>&#x2e;<span>harvard&#x2e;edu).
+ </p>
+ <p>
+ The source code includes contributions by the following people: 
+-Alvaro, Kit Barnes, Eduardo de Barros Lima, Mathieu Bouchard, 
+-Ole J&oslash;rgen Br&oslash;nner, Robert Buchholz, William Chao, Vincenzo Ciancia, 
+-Luca de Cicco, Michele Codutti, Robert Gerlach, Daniel German, 
+-Dirk Gerrits, Simon Guest, Andreas Huettel,
++Alvaro, Massoud Babaie-Zadeh, Kit Barnes, Eduardo de Barros Lima, 
++Mathieu Bouchard,  Ole J&oslash;rgen Br&oslash;nner, Robert Buchholz, William Chao, 
++Vincenzo Ciancia, Luca de Cicco, Michele Codutti, Robert Gerlach, 
++Daniel German, Dirk Gerrits, Simon Guest, Andreas Huettel,
+ Lukasz Kaiser, Ian Woo Kim, Timo Kluck, David Kolibac, Danny Kukawka, 
+ Stefan Lembach, Bob McElrath, Mutse, Andy Neitzke, David Planella, 
+ Marco Poletti,  Alex Ray, Jean-Baptiste Rouquier, Victor Saase, 
+diff --git a/src/xo-callbacks.c b/src/xo-callbacks.c
+index b4e6339..b2def48 100644
+--- a/src/xo-callbacks.c
++++ b/src/xo-callbacks.c
+@@ -3771,8 +3771,24 @@ on_optionsPressureSensitive_activate   (GtkMenuItem     *menuitem,
+   end_text();
+   ui.pressure_sensitivity =
+     gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM (menuitem));
++  if (ui.pressure_sensitivity) ui.speed_sensitivity = FALSE;
+   for (i=0; i<=NUM_BUTTONS; i++)
+-    ui.brushes[i][TOOL_PEN].variable_width = ui.pressure_sensitivity;
++    ui.brushes[i][TOOL_PEN].variable_width = ui.pressure_sensitivity || ui.speed_sensitivity;
++  update_mappings_menu();
++}
++
++
++void
++on_optionsSpeedSensitive_activate      (GtkMenuItem     *menuitem,
++                                        gpointer         user_data)
++{
++  int i;
++  end_text();
++  ui.speed_sensitivity =
++    gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM (menuitem));
++  if (ui.speed_sensitivity) ui.pressure_sensitivity = FALSE;
++  for (i=0; i<=NUM_BUTTONS; i++)
++    ui.brushes[i][TOOL_PEN].variable_width = ui.pressure_sensitivity || ui.speed_sensitivity;
+   update_mappings_menu();
+ }
+ 
+diff --git a/src/xo-callbacks.h b/src/xo-callbacks.h
+index 17c0dfa..fbbbe01 100644
+--- a/src/xo-callbacks.h
++++ b/src/xo-callbacks.h
+@@ -654,6 +654,10 @@ void
+ on_optionsPressureSensitive_activate   (GtkMenuItem     *menuitem,
+                                         gpointer         user_data);
+ 
++void
++on_optionsSpeedSensitive_activate      (GtkMenuItem     *menuitem,
++                                        gpointer         user_data);
++
+ void
+ on_buttonColorChooser_set              (GtkColorButton  *colorbutton,
+                                         gpointer         user_data);
+diff --git a/src/xo-file.c b/src/xo-file.c
+index 20dc1c1..a3ebc2c 100644
+--- a/src/xo-file.c
++++ b/src/xo-file.c
+@@ -1757,8 +1757,10 @@ void init_config_default(void)
+   ui.default_font_name = g_strdup(DEFAULT_FONT);
+   ui.default_font_size = DEFAULT_FONT_SIZE;
+   ui.pressure_sensitivity = FALSE;
+-  ui.width_minimum_multiplier = 0.0;
++  ui.speed_sensitivity = FALSE;
++  ui.width_minimum_multiplier = 0.40;
+   ui.width_maximum_multiplier = 1.25;
++  ui.speed_min_width_threshold = 400.;
+   ui.button_switch_mapping = FALSE;
+   ui.autoload_pdf_xoj = FALSE;
+   ui.autocreate_new_xoj = FALSE;
+@@ -1943,12 +1945,18 @@ void save_config_to_file(void)
+   update_keyval("general", "pressure_sensitivity",
+      _(" use pressure sensitivity to control pen stroke width (true/false)"),
+      g_strdup(ui.pressure_sensitivity?"true":"false"));
++  update_keyval("general", "speed_sensitivity",
++     _(" use pen speed to control pen stroke width (true/false)"),
++     g_strdup(ui.speed_sensitivity?"true":"false"));
+   update_keyval("general", "width_minimum_multiplier",
+-     _(" minimum width multiplier"),
++     _(" minimum width multiplier (don't set to zero, use 0.01 if needed instead)"),
+      g_strdup_printf("%.2f", ui.width_minimum_multiplier));
+   update_keyval("general", "width_maximum_multiplier",
+      _(" maximum width multiplier"),
+      g_strdup_printf("%.2f", ui.width_maximum_multiplier));
++  update_keyval("general", "speed_min_width_threshold",
++     _(" speed threshold for speed-sensitive stroke width to reach minimum"),
++     g_strdup_printf("%.1f", ui.speed_min_width_threshold));
+   update_keyval("general", "interface_order",
+     _(" interface components from top to bottom\n valid values: drawarea menu main_toolbar pen_toolbar statusbar"),
+     verbose_vertical_order(ui.vertical_order[0]));
+@@ -2352,8 +2360,10 @@ void load_config_from_file(void)
+   parse_keyval_int("general", "autosave_delay", &ui.autosave_delay, 1, 3600);
+   parse_keyval_string("general", "default_path", &ui.default_path);
+   parse_keyval_boolean("general", "pressure_sensitivity", &ui.pressure_sensitivity);
+-  parse_keyval_float("general", "width_minimum_multiplier", &ui.width_minimum_multiplier, 0., 10.);
+-  parse_keyval_float("general", "width_maximum_multiplier", &ui.width_maximum_multiplier, 0., 10.);
++  parse_keyval_boolean("general", "speed_sensitivity", &ui.speed_sensitivity);
++  parse_keyval_float("general", "width_minimum_multiplier", &ui.width_minimum_multiplier, 0.0001, 10.);
++  parse_keyval_float("general", "width_maximum_multiplier", &ui.width_maximum_multiplier, 0.0001, 10.);
++  parse_keyval_float("general", "speed_min_width_threshold", &ui.speed_min_width_threshold, 1., 10000.);
+ 
+   parse_keyval_vorderlist("general", "interface_order", ui.vertical_order[0]);
+   parse_keyval_vorderlist("general", "interface_fullscreen", ui.vertical_order[1]);
+diff --git a/src/xo-interface.c b/src/xo-interface.c
+index 9a05776..8fec98f 100644
+--- a/src/xo-interface.c
++++ b/src/xo-interface.c
+@@ -213,6 +213,7 @@ create_winMain (void)
+   GtkWidget *pen_and_touch_menu;
+   GtkWidget *optionsButtonMappings;
+   GtkWidget *optionsPressureSensitive;
++  GtkWidget *optionsSpeedSensitive;
+   GtkWidget *optionsButtonSwitchMapping;
+   GtkWidget *optionsTouchAsHandTool;
+   GtkWidget *optionsPenDisablesTouch;
+@@ -1237,6 +1238,10 @@ create_winMain (void)
+   gtk_widget_show (optionsPressureSensitive);
+   gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsPressureSensitive);
+ 
++  optionsSpeedSensitive = gtk_check_menu_item_new_with_mnemonic (_("_Speed sensitivity"));
++  gtk_widget_show (optionsSpeedSensitive);
++  gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsSpeedSensitive);
++
+   optionsButtonSwitchMapping = gtk_check_menu_item_new_with_mnemonic (_("Buttons Switch Mappings"));
+   gtk_widget_show (optionsButtonSwitchMapping);
+   gtk_container_add (GTK_CONTAINER (pen_and_touch_menu), optionsButtonSwitchMapping);
+@@ -2371,6 +2376,9 @@ create_winMain (void)
+   g_signal_connect ((gpointer) optionsPressureSensitive, "activate",
+                     G_CALLBACK (on_optionsPressureSensitive_activate),
+                     NULL);
++  g_signal_connect ((gpointer) optionsSpeedSensitive, "activate",
++                    G_CALLBACK (on_optionsSpeedSensitive_activate),
++                    NULL);
+   g_signal_connect ((gpointer) optionsButtonSwitchMapping, "toggled",
+                     G_CALLBACK (on_optionsButtonsSwitchMappings_activate),
+                     NULL);
+@@ -2812,6 +2820,7 @@ create_winMain (void)
+   GLADE_HOOKUP_OBJECT (winMain, pen_and_touch_menu, "pen_and_touch_menu");
+   GLADE_HOOKUP_OBJECT (winMain, optionsButtonMappings, "optionsButtonMappings");
+   GLADE_HOOKUP_OBJECT (winMain, optionsPressureSensitive, "optionsPressureSensitive");
++  GLADE_HOOKUP_OBJECT (winMain, optionsSpeedSensitive, "optionsSpeedSensitive");
+   GLADE_HOOKUP_OBJECT (winMain, optionsButtonSwitchMapping, "optionsButtonSwitchMapping");
+   GLADE_HOOKUP_OBJECT (winMain, optionsTouchAsHandTool, "optionsTouchAsHandTool");
+   GLADE_HOOKUP_OBJECT (winMain, optionsPenDisablesTouch, "optionsPenDisablesTouch");
+diff --git a/src/xo-misc.c b/src/xo-misc.c
+index 330d5ee..770c24a 100644
+--- a/src/xo-misc.c
++++ b/src/xo-misc.c
+@@ -1314,6 +1314,7 @@ void update_mappings_menu(void)
+ {
+   gtk_widget_set_sensitive(GET_COMPONENT("optionsButtonMappings"), ui.use_xinput);
+   gtk_widget_set_sensitive(GET_COMPONENT("optionsPressureSensitive"), ui.use_xinput);
++  gtk_widget_set_sensitive(GET_COMPONENT("optionsSpeedSensitive"), TRUE);
+   gtk_widget_set_sensitive(GET_COMPONENT("optionsTouchAsHandTool"), ui.use_xinput);
+   gtk_widget_set_sensitive(GET_COMPONENT("optionsPenDisablesTouch"), ui.use_xinput);
+   gtk_widget_set_sensitive(GET_COMPONENT("optionsDesignateTouchscreen"), ui.use_xinput);
+@@ -1325,6 +1326,8 @@ void update_mappings_menu(void)
+     GTK_CHECK_MENU_ITEM(GET_COMPONENT("optionsPenDisablesTouch")), ui.pen_disables_touch);
+   gtk_check_menu_item_set_active(
+     GTK_CHECK_MENU_ITEM(GET_COMPONENT("optionsPressureSensitive")), ui.pressure_sensitivity);
++  gtk_check_menu_item_set_active(
++    GTK_CHECK_MENU_ITEM(GET_COMPONENT("optionsSpeedSensitive")), ui.speed_sensitivity);
+ 
+   switch(ui.toolno[1]) {
+     case TOOL_PEN:
+diff --git a/src/xo-paint.c b/src/xo-paint.c
+index 9d17731..a16d64d 100644
+--- a/src/xo-paint.c
++++ b/src/xo-paint.c
+@@ -243,12 +243,19 @@ void create_new_stroke(GdkEvent *event)
+   } else
+     ui.cur_item->canvas_item = gnome_canvas_item_new(
+       ui.cur_layer->group, gnome_canvas_group_get_type(), NULL);
++      
++  if (ui.cur_brush->variable_width) {
++    ui.speed_refpt = ui.cur_path.coords;
++    ui.speed_reftime = gdk_event_get_time(event);
++    ui.speed_avg = 0.;
++  }
+ }
+ 
+ void continue_stroke(GdkEvent *event)
+ {
+   GnomeCanvasPoints seg;
+-  double *pt, current_width, pressure;
++  double *pt, current_width, pressure, speed_now, decay_constant;
++  guint event_time, delta_time;
+ 
+   if (ui.cur_brush->ruler) {
+     pt = ui.cur_path.coords;
+@@ -261,10 +268,29 @@ void continue_stroke(GdkEvent *event)
+ 
+   if (ui.cur_item->brush.variable_width) {
+     realloc_cur_widths(ui.cur_path.num_points);
+-    pressure = get_pressure_multiplier(event);
+-    if (pressure > ui.width_minimum_multiplier) 
+-      current_width = ui.cur_item->brush.thickness*get_pressure_multiplier(event);
+-    else { // reported pressure is 0.
++    if (ui.cur_item->brush.ruler) pressure = 1.; // no variable width ruler
++    else if (ui.pressure_sensitivity) pressure = get_pressure_multiplier(event);
++    else { /* speed sensitivity */ 
++      event_time = gdk_event_get_time(event);
++      if (event_time > ui.speed_reftime) /* don't recalculate speed until nonzero time has elapsed */
++      {
++        delta_time = event_time - ui.speed_reftime;
++        speed_now = hypot(pt[2]-ui.speed_refpt[0], pt[3]-ui.speed_refpt[1]) * 1000. / delta_time;
++        // 50 on the next two lines is the averaging time constant, in milliseconds
++        if (delta_time > 50 || ui.speed_refpt == ui.cur_path.coords) ui.speed_avg = speed_now;
++        else ui.speed_avg = (ui.speed_avg*(50-delta_time) + speed_now*delta_time) / 50.; // averaging
++        ui.speed_reftime = event_time; 
++        ui.speed_refpt = pt+2;
++      }
++      decay_constant = ui.width_maximum_multiplier/ui.width_minimum_multiplier - 1;
++      if (ui.speed_avg > ui.speed_min_width_threshold) pressure = ui.width_minimum_multiplier;
++      else pressure = ui.width_maximum_multiplier / (ui.speed_avg*decay_constant/ui.speed_min_width_threshold + 1.);
++      // DEBUG printf("delta_time %d  speed_now %.1f  speed_avg %.1f  pressure multiplier %.2f\n", delta_time, speed_now, ui.speed_avg, pressure);
++    }
++    
++    if (pressure > 0.)
++      current_width = ui.cur_item->brush.thickness*pressure;
++    else { // reported pressure is 0. or other deficient calculation of multiplier
+       if (ui.cur_path.num_points >= 2) current_width = ui.cur_widths[ui.cur_path.num_points-2];
+       else current_width = ui.cur_item->brush.thickness;
+     }
+diff --git a/src/xournal.h b/src/xournal.h
+index f994dc9..2784015 100644
+--- a/src/xournal.h
++++ b/src/xournal.h
+@@ -294,7 +294,12 @@ typedef struct UIData {
+   gboolean allow_xinput; // allow use of xinput ?
+   gboolean discard_corepointer; // discard core pointer events in XInput mode
+   gboolean pressure_sensitivity; // use pen pressure to control stroke width?
++  gboolean speed_sensitivity; // use pen speed to control stroke width?
+   double width_minimum_multiplier, width_maximum_multiplier; // calibration for pressure sensitivity
++  double speed_min_width_threshold; // speed threshold for min width
++  double *speed_refpt; // ref point for current speed calculation
++  guint32 speed_reftime; // time of reference event for speed calculation
++  double speed_avg; // averaged speed of current stroke
+   gboolean is_corestroke; // this stroke is painted with core pointer
+   gboolean saved_is_corestroke;
+   GdkDevice *stroke_device; // who's painting this stroke
+diff --git a/xournal.glade b/xournal.glade
+index 38ae9f2..1eb9145 100644
+--- a/xournal.glade
++++ b/xournal.glade
+@@ -1597,6 +1597,16 @@
+ 			    </widget>
+ 			  </child>
+ 
++			  <child>
++			    <widget class="GtkCheckMenuItem" id="optionsSpeedSensitive">
++			      <property name="visible">True</property>
++			      <property name="label" translatable="yes">_Speed sensitivity</property>
++			      <property name="use_underline">True</property>
++			      <property name="active">False</property>
++			      <signal name="activate" handler="on_optionsSpeedSensitive_activate" last_modification_time="Fri, 21 Mar 2008 19:00:32 GMT"/>
++			    </widget>
++			  </child>
++
+ 			  <child>
+ 			    <widget class="GtkCheckMenuItem" id="optionsButtonSwitchMapping">
+ 			      <property name="visible">True</property>

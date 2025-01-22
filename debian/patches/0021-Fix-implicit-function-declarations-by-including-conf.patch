@@ -1,0 +1,56 @@
+From: Denis Auroux <auroux@users.sourceforge.net>
+Date: Sun, 24 Jan 2021 15:48:16 -0500
+Subject: Fix implicit function declarations by including config.h in
+ ttsubset/*.c
+
+---
+ src/ttsubset/list.c | 4 ++++
+ src/ttsubset/sft.c  | 3 ++-
+ src/ttsubset/ttcr.c | 3 ++-
+ 3 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/src/ttsubset/list.c b/src/ttsubset/list.c
+index 0cf958e..a69f2e3 100644
+--- a/src/ttsubset/list.c
++++ b/src/ttsubset/list.c
+@@ -44,6 +44,10 @@
+  *
+  */
+ 
++#ifdef HAVE_CONFIG_H
++#  include <config.h>
++#endif
++
+ #include <stdlib.h>
+ #include <assert.h>
+ #ifdef MALLOC_TRACE
+diff --git a/src/ttsubset/sft.c b/src/ttsubset/sft.c
+index 95cae2d..45328f4 100644
+--- a/src/ttsubset/sft.c
++++ b/src/ttsubset/sft.c
+@@ -44,8 +44,9 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#  include <config.h>
+ #endif
++
+ #include <assert.h>
+ #include <stdlib.h>
+ #ifdef HAVE_UNISTD_H
+diff --git a/src/ttsubset/ttcr.c b/src/ttsubset/ttcr.c
+index 68f5360..2b36956 100644
+--- a/src/ttsubset/ttcr.c
++++ b/src/ttsubset/ttcr.c
+@@ -45,8 +45,9 @@
+  */
+ 
+ #ifdef HAVE_CONFIG_H
+-#include <config.h>
++#  include <config.h>
+ #endif
++
+ #include <sys/types.h>
+ #ifdef HAVE_UNISTD_H
+ #include <unistd.h>

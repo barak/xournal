@@ -17,3 +17,9 @@
 0017-autoconf-libs.patch
 0018-upstream-auto-save-repetition-fix.patch
 0019-upstream-text-box-background.patch
+0020-fix-author-s-email-address.patch
+0021-Fix-implicit-function-declarations-by-including-conf.patch
+0022-control-mousewheel-scrolls-in-out-only-if-XInput-opt.patch
+0023-control-mousewheel-scrolls-in-out-only-if-XInput-opt.patch
+0024-speed-sensitive-pen-width-option-fountain-pen-effect.patch
+0025-Fix-smoothing-of-speed-data-for-strokes-with-speed-d.patch

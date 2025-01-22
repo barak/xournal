@@ -1,0 +1,18 @@
+From: Denis Auroux <auroux@users.sourceforge.net>
+Date: Tue, 22 Dec 2020 17:42:37 -0500
+Subject: fix author's email address :|
+
+---
+ AUTHORS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/AUTHORS b/AUTHORS
+index ed01b15..fc1d498 100644
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -1,4 +1,4 @@
+-Main author: Denis Auroux (auroux@math.berkeley.edu)
++Main author: Denis Auroux (auroux@math.harvard.edu)
+ 
+ The source code includes contributions by the following people:
+ 
